@@ -35,6 +35,7 @@ function createAdapterSubcommands(agentName: string, displayName: string): Comma
         const adapter = getAdapter(agentName, {
           vaultPath: config.vault.path,
           backupsPath: getBackupsPath(),
+          scanPaths: config.adapters.claude.scanPaths,
         });
 
         // Detect workspace
@@ -58,19 +59,22 @@ function createAdapterSubcommands(agentName: string, displayName: string): Comma
         const importResult = await adapter.import(workspacePath);
 
         if (agentName === 'claude') {
-          const skills = countByPrefix(importResult.imported, 'skills/');
-          const rules = countByPrefix(importResult.imported, 'claude/rules/');
-          const claudeMd = importResult.imported.includes('claude/CLAUDE.md') ? 1 : 0;
-          const memories = countByPrefix(importResult.imported, 'claude/projects/');
+          const newSkills = countByPrefix(importResult.imported, 'skills/');
+          const existingSkills = countByPrefix(importResult.skipped, 'skills/');
+          const totalSkills = newSkills + existingSkills;
+          const newRules = countByPrefix(importResult.imported, 'claude/rules/');
+          const existingRules = countByPrefix(importResult.skipped, 'claude/rules/');
+          const totalRules = newRules + existingRules;
+          const memories = countByPrefix(importResult.imported, 'claude/projects/') +
+            countByPrefix(importResult.skipped, 'claude/projects/');
           console.log(
-            `  Found: ${skills} skills, ${rules} rules, ${memories} project memory files` +
-            (claudeMd ? ', CLAUDE.md' : ''),
+            `  ${totalSkills} skills, ${totalRules} rules, ${memories} project memory files`,
           );
         }
 
         console.log(
-          `  ${chalk.green(`${importResult.imported.length} imported`)}, ` +
-          `${chalk.dim(`${importResult.skipped.length} skipped`)}`,
+          `  ${chalk.green(`${importResult.imported.length} new`)}, ` +
+          `${chalk.dim(`${importResult.skipped.length} unchanged`)}`,
         );
 
         if (importResult.errors.length > 0) {
@@ -123,6 +127,7 @@ function createAdapterSubcommands(agentName: string, displayName: string): Comma
         const adapter = getAdapter(agentName, {
           vaultPath: config.vault.path,
           backupsPath: getBackupsPath(),
+          scanPaths: config.adapters.claude.scanPaths,
         });
 
         const isEnabled =
@@ -178,6 +183,7 @@ function createAdapterSubcommands(agentName: string, displayName: string): Comma
         const adapter = getAdapter(agentName, {
           vaultPath: config.vault.path,
           backupsPath: getBackupsPath(),
+          scanPaths: config.adapters.claude.scanPaths,
         });
 
         const isEnabled =

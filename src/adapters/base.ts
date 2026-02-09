@@ -4,6 +4,7 @@ import { join, dirname, relative } from 'node:path';
 export interface AdapterOptions {
   vaultPath: string;
   backupsPath: string;
+  scanPaths?: string[];
 }
 
 export interface ImportResult {

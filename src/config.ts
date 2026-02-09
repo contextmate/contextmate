@@ -28,6 +28,7 @@ export interface ContextMateConfig {
       enabled: boolean;
       skillsPath: string;
       claudeDir: string;
+      scanPaths: string[];
       syncRules: boolean;
       syncProjectMemories: boolean;
       syncGlobalMemory: boolean;
@@ -73,6 +74,7 @@ export function getDefaultConfig(): ContextMateConfig {
         enabled: false,
         skillsPath: join(homedir(), '.agents', 'skills'),
         claudeDir: join(homedir(), '.claude'),
+        scanPaths: [],
         syncRules: true,
         syncProjectMemories: true,
         syncGlobalMemory: true,
