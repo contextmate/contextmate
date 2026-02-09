@@ -1,0 +1,140 @@
+---
+
+---
+
+<div id="key-diagram" class="key-diagram">
+  <svg viewBox="0 0 600 320" class="w-full max-w-xl mx-auto" xmlns="http://www.w3.org/2000/svg">
+    <!-- Arrowhead marker definition -->
+    <defs>
+      <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <polygon points="0 0, 8 3, 0 6" fill="#888888" />
+      </marker>
+    </defs>
+
+    <!-- Row 1: Passphrase -->
+    <g class="key-node">
+      <rect x="225" y="15" width="150" height="40" rx="8" fill="transparent" stroke="#4fc3f7" stroke-width="1.5" />
+      <text x="300" y="40" text-anchor="middle" fill="#e0e0e0" font-family="'JetBrains Mono', monospace" font-size="13">Passphrase</text>
+    </g>
+
+    <!-- Arrow: Passphrase → Argon2id -->
+    <g class="key-node">
+      <line x1="300" y1="55" x2="300" y2="85" stroke="#888888" stroke-width="1.5" marker-end="url(#arrowhead)" />
+    </g>
+
+    <!-- Row 2: Argon2id -->
+    <g class="key-node">
+      <rect x="225" y="85" width="150" height="40" rx="8" fill="rgba(102,187,106,0.1)" stroke="#66bb6a" stroke-width="1.5" />
+      <text x="300" y="110" text-anchor="middle" fill="#e0e0e0" font-family="'JetBrains Mono', monospace" font-size="13">Argon2id</text>
+    </g>
+
+    <!-- Arrow: Argon2id → Master Key -->
+    <g class="key-node">
+      <line x1="300" y1="125" x2="300" y2="155" stroke="#888888" stroke-width="1.5" marker-end="url(#arrowhead)" />
+    </g>
+
+    <!-- Row 3: Master Key -->
+    <g class="key-node">
+      <rect x="225" y="155" width="150" height="40" rx="8" fill="rgba(79,195,247,0.1)" stroke="#4fc3f7" stroke-width="1.5" />
+      <text x="300" y="181" text-anchor="middle" fill="#e0e0e0" font-family="'JetBrains Mono', monospace" font-size="13" font-weight="bold">Master Key</text>
+    </g>
+
+    <!-- Arrows: Master Key → three child nodes -->
+    <g class="key-node">
+      <!-- Left arrow -->
+      <line x1="260" y1="195" x2="125" y2="235" stroke="#888888" stroke-width="1.5" marker-end="url(#arrowhead)" />
+      <!-- Center arrow -->
+      <line x1="300" y1="195" x2="300" y2="235" stroke="#888888" stroke-width="1.5" marker-end="url(#arrowhead)" />
+      <!-- Right arrow -->
+      <line x1="340" y1="195" x2="475" y2="235" stroke="#888888" stroke-width="1.5" marker-end="url(#arrowhead)" />
+    </g>
+
+    <!-- Row 4 Left: Vault Key -->
+    <g class="key-node">
+      <rect x="50" y="235" width="150" height="40" rx="8" fill="transparent" stroke="#4fc3f7" stroke-width="1.5" />
+      <text x="125" y="260" text-anchor="middle" fill="#e0e0e0" font-family="'JetBrains Mono', monospace" font-size="13">Vault Key</text>
+      <text x="125" y="290" text-anchor="middle" fill="#888888" font-family="'JetBrains Mono', monospace" font-size="10">AES-256-GCM</text>
+    </g>
+
+    <!-- Row 4 Center: Auth Key -->
+    <g class="key-node">
+      <rect x="225" y="235" width="150" height="40" rx="8" fill="transparent" stroke="#888888" stroke-width="1.5" />
+      <text x="300" y="260" text-anchor="middle" fill="#e0e0e0" font-family="'JetBrains Mono', monospace" font-size="13">Auth Key</text>
+      <text x="300" y="290" text-anchor="middle" fill="#888888" font-family="'JetBrains Mono', monospace" font-size="10">BLAKE3 hash</text>
+    </g>
+
+    <!-- Row 4 Right: Sharing Key -->
+    <g class="key-node">
+      <rect x="400" y="235" width="150" height="40" rx="8" fill="transparent" stroke="#666666" stroke-width="1.5" stroke-dasharray="4 3" />
+      <text x="475" y="260" text-anchor="middle" fill="#e0e0e0" font-family="'JetBrains Mono', monospace" font-size="13">Sharing Key</text>
+      <text x="475" y="290" text-anchor="middle" fill="#888888" font-family="'JetBrains Mono', monospace" font-size="10">Future</text>
+    </g>
+  </svg>
+</div>
+
+<style>
+  .key-node {
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.5s ease;
+  }
+
+  .key-diagram-visible .key-node {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .key-diagram-visible .key-node:nth-child(1) {
+    transition-delay: 0s;
+  }
+
+  .key-diagram-visible .key-node:nth-child(2) {
+    transition-delay: 0.1s;
+  }
+
+  .key-diagram-visible .key-node:nth-child(3) {
+    transition-delay: 0.2s;
+  }
+
+  .key-diagram-visible .key-node:nth-child(4) {
+    transition-delay: 0.3s;
+  }
+
+  .key-diagram-visible .key-node:nth-child(5) {
+    transition-delay: 0.4s;
+  }
+
+  .key-diagram-visible .key-node:nth-child(6) {
+    transition-delay: 0.5s;
+  }
+
+  .key-diagram-visible .key-node:nth-child(7) {
+    transition-delay: 0.55s;
+  }
+
+  .key-diagram-visible .key-node:nth-child(8) {
+    transition-delay: 0.6s;
+  }
+
+  .key-diagram-visible .key-node:nth-child(9) {
+    transition-delay: 0.65s;
+  }
+</style>
+
+<script>
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('key-diagram-visible');
+        }
+      });
+    },
+    { threshold: 0.3 }
+  );
+
+  const diagram = document.getElementById('key-diagram');
+  if (diagram) {
+    observer.observe(diagram);
+  }
+</script>

@@ -1,0 +1,113 @@
+---
+const navLinks = [
+  { label: 'Features', href: '#features' },
+  { label: 'Security', href: '#security' },
+  { label: 'Get Started', href: '#get-started' },
+];
+---
+
+<header
+  class="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-brand-bg/80 border-b border-brand-border/50"
+>
+  <nav class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+    <!-- Logo -->
+    <a href="/" class="font-mono font-bold text-lg text-brand-accent no-underline">
+      ContextMate
+    </a>
+
+    <!-- Desktop nav -->
+    <div class="hidden md:flex items-center gap-6">
+      {navLinks.map((link) => (
+        <a
+          href={link.href}
+          class="text-brand-muted hover:text-brand-text transition-colors no-underline"
+        >
+          {link.label}
+        </a>
+      ))}
+      <a
+        href="https://github.com/contextmate/contextmate"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="border border-brand-border rounded-md px-3 py-1 text-brand-muted hover:text-brand-text hover:border-brand-accent transition-colors no-underline"
+      >
+        GitHub
+      </a>
+    </div>
+
+    <!-- Mobile hamburger -->
+    <button
+      id="mobile-menu-btn"
+      class="md:hidden flex flex-col justify-center items-center w-8 h-8 gap-1.5 cursor-pointer bg-transparent border-none"
+      aria-label="Toggle navigation menu"
+      aria-expanded="false"
+    >
+      <span class="block w-5 h-0.5 bg-brand-muted transition-all duration-200" id="bar-1"></span>
+      <span class="block w-5 h-0.5 bg-brand-muted transition-all duration-200" id="bar-2"></span>
+      <span class="block w-5 h-0.5 bg-brand-muted transition-all duration-200" id="bar-3"></span>
+    </button>
+  </nav>
+
+  <!-- Mobile dropdown -->
+  <div
+    id="mobile-menu"
+    class="hidden md:hidden border-t border-brand-border/50 bg-brand-bg/95 backdrop-blur-md"
+  >
+    <div class="max-w-6xl mx-auto px-6 py-4 flex flex-col gap-4">
+      {navLinks.map((link) => (
+        <a
+          href={link.href}
+          class="text-brand-muted hover:text-brand-text transition-colors no-underline"
+        >
+          {link.label}
+        </a>
+      ))}
+      <a
+        href="https://github.com/contextmate/contextmate"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="border border-brand-border rounded-md px-3 py-1 w-fit text-brand-muted hover:text-brand-text hover:border-brand-accent transition-colors no-underline"
+      >
+        GitHub
+      </a>
+    </div>
+  </div>
+</header>
+
+<script>
+  const btn = document.getElementById('mobile-menu-btn');
+  const menu = document.getElementById('mobile-menu');
+  const bar1 = document.getElementById('bar-1');
+  const bar2 = document.getElementById('bar-2');
+  const bar3 = document.getElementById('bar-3');
+
+  let isOpen = false;
+
+  btn?.addEventListener('click', () => {
+    isOpen = !isOpen;
+    menu?.classList.toggle('hidden', !isOpen);
+    btn?.setAttribute('aria-expanded', String(isOpen));
+
+    if (isOpen) {
+      bar1?.classList.add('translate-y-1', 'rotate-45');
+      bar2?.classList.add('opacity-0');
+      bar3?.classList.add('-translate-y-1', '-rotate-45');
+    } else {
+      bar1?.classList.remove('translate-y-1', 'rotate-45');
+      bar2?.classList.remove('opacity-0');
+      bar3?.classList.remove('-translate-y-1', '-rotate-45');
+    }
+  });
+
+  // Close mobile menu when a nav link is clicked
+  menu?.querySelectorAll('a').forEach((link) => {
+    link.addEventListener('click', () => {
+      isOpen = false;
+      menu?.classList.add('hidden');
+      btn?.setAttribute('aria-expanded', 'false');
+      bar1?.classList.remove('translate-y-1', 'rotate-45');
+      bar2?.classList.remove('opacity-0');
+      bar3?.classList.remove('-translate-y-1', '-rotate-45');
+    });
+  });
+</script>

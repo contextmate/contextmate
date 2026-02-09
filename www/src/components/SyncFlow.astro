@@ -1,0 +1,483 @@
+---
+
+---
+
+<section class="py-24 px-6 relative overflow-hidden">
+  <h2 class="font-mono text-3xl md:text-4xl font-bold text-center mb-4">
+    Sync everywhere. Trust no one.
+  </h2>
+  <p class="text-brand-muted text-center mb-12 max-w-2xl mx-auto">
+    The server only sees encrypted blobs. Your passphrase never leaves your device.
+  </p>
+
+  <!-- Desktop interactive SVG -->
+  <div class="hidden md:block max-w-4xl mx-auto relative">
+    <svg
+      id="sync-flow-svg"
+      viewBox="0 0 900 400"
+      xmlns="http://www.w3.org/2000/svg"
+      class="w-full h-auto"
+    >
+      <defs>
+        <!-- Glow filter for the cloud -->
+        <filter id="cloud-glow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+        <!-- Subtle glow for nodes -->
+        <filter id="node-glow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur" />
+          <feFlood flood-color="#4fc3f7" flood-opacity="0.15" result="color" />
+          <feComposite in="color" in2="blur" operator="in" result="glow" />
+          <feComposite in="SourceGraphic" in2="glow" operator="over" />
+        </filter>
+      </defs>
+
+      <!-- ============================================ -->
+      <!-- CONNECTING PATHS (drawn first, behind nodes) -->
+      <!-- ============================================ -->
+
+      <!-- Device paths: device -> cloud -->
+      <path class="flow-path" d="M 160 80 C 260 80, 300 160, 390 180"
+        stroke="#2a2a4a" stroke-width="1.5" fill="none" opacity="0.3" />
+      <path class="flow-path" d="M 160 200 C 260 200, 300 190, 390 190"
+        stroke="#2a2a4a" stroke-width="1.5" fill="none" opacity="0.3" />
+      <path class="flow-path" d="M 160 320 C 260 320, 300 220, 390 200"
+        stroke="#2a2a4a" stroke-width="1.5" fill="none" opacity="0.3" />
+
+      <!-- Agent paths: cloud -> agent -->
+      <path class="flow-path" d="M 510 180 C 600 160, 640 80, 740 80"
+        stroke="#2a2a4a" stroke-width="1.5" fill="none" opacity="0.3" />
+      <path class="flow-path" d="M 510 190 C 600 190, 640 200, 740 200"
+        stroke="#2a2a4a" stroke-width="1.5" fill="none" opacity="0.3" />
+      <path class="flow-path" d="M 510 200 C 600 220, 640 320, 740 320"
+        stroke="#2a2a4a" stroke-width="1.5" fill="none" opacity="0.3" />
+
+      <!-- ============================================ -->
+      <!-- LEFT COLUMN: Device Nodes                    -->
+      <!-- ============================================ -->
+
+      <!-- MacBook -->
+      <g class="flow-node" data-connections="path-0,path-3" data-label="MacBook Pro&#10;Your primary dev machine">
+        <rect x="40" y="55" width="120" height="50" rx="8" fill="#16213e" stroke="#2a2a4a" stroke-width="1" filter="url(#node-glow)" />
+        <!-- Laptop icon -->
+        <g transform="translate(52, 67)">
+          <rect x="0" y="0" width="16" height="11" rx="2" stroke="#4fc3f7" stroke-width="1.2" fill="none" />
+          <rect x="3" y="2" width="10" height="6" rx="0.5" fill="#4fc3f7" opacity="0.15" />
+          <path d="M-2 13h20" stroke="#4fc3f7" stroke-width="1.2" stroke-linecap="round" />
+        </g>
+        <text x="78" y="77" fill="#e0e0e0" font-size="11" font-family="var(--font-sans)" dominant-baseline="middle">MacBook</text>
+      </g>
+
+      <!-- Desktop -->
+      <g class="flow-node" data-connections="path-1,path-4" data-label="Desktop&#10;Your workstation">
+        <rect x="40" y="175" width="120" height="50" rx="8" fill="#16213e" stroke="#2a2a4a" stroke-width="1" filter="url(#node-glow)" />
+        <!-- Monitor icon -->
+        <g transform="translate(52, 187)">
+          <rect x="0" y="0" width="16" height="11" rx="2" stroke="#4fc3f7" stroke-width="1.2" fill="none" />
+          <rect x="2" y="2" width="12" height="7" rx="0.5" fill="#4fc3f7" opacity="0.15" />
+          <line x1="8" y1="12" x2="8" y2="16" stroke="#4fc3f7" stroke-width="1.2" />
+          <line x1="4" y1="16" x2="12" y2="16" stroke="#4fc3f7" stroke-width="1.2" stroke-linecap="round" />
+        </g>
+        <text x="78" y="197" fill="#e0e0e0" font-size="11" font-family="var(--font-sans)" dominant-baseline="middle">Desktop</text>
+      </g>
+
+      <!-- iPhone -->
+      <g class="flow-node" data-connections="path-2,path-5" data-label="iPhone&#10;On-the-go access">
+        <rect x="40" y="295" width="120" height="50" rx="8" fill="#16213e" stroke="#2a2a4a" stroke-width="1" filter="url(#node-glow)" />
+        <!-- Phone icon -->
+        <g transform="translate(55, 305)">
+          <rect x="0" y="0" width="10" height="17" rx="2" stroke="#4fc3f7" stroke-width="1.2" fill="none" />
+          <rect x="2" y="2" width="6" height="10" rx="0.5" fill="#4fc3f7" opacity="0.15" />
+          <circle cx="5" cy="14.5" r="1" fill="#4fc3f7" opacity="0.4" />
+        </g>
+        <text x="78" y="317" fill="#e0e0e0" font-size="11" font-family="var(--font-sans)" dominant-baseline="middle">iPhone</text>
+      </g>
+
+      <!-- ============================================ -->
+      <!-- CENTER: Encrypted Cloud                      -->
+      <!-- ============================================ -->
+
+      <g class="cloud-node" filter="url(#cloud-glow)">
+        <!-- Cloud shape -->
+        <path d="
+          M 410 140
+          C 410 125, 425 115, 440 115
+          C 445 100, 465 95, 480 105
+          C 490 95, 510 100, 515 115
+          C 530 115, 540 130, 535 145
+          C 545 155, 540 170, 525 175
+          L 525 220
+          C 540 225, 545 240, 535 250
+          C 540 260, 530 275, 515 275
+          C 510 285, 490 290, 480 280
+          C 465 290, 445 285, 440 275
+          C 425 275, 410 265, 410 250
+          C 395 245, 390 230, 400 220
+          L 400 175
+          C 390 170, 385 155, 395 145
+          C 390 135, 400 125, 410 140
+          Z
+        " fill="#16213e" stroke="#2a2a4a" stroke-width="1.5" />
+
+        <!-- Lock icon centered in cloud -->
+        <g transform="translate(450, 170)">
+          <!-- Lock body -->
+          <rect x="0" y="10" width="20" height="16" rx="3" fill="#4fc3f7" opacity="0.2" stroke="#4fc3f7" stroke-width="1.2" />
+          <!-- Lock shackle -->
+          <path d="M4 10V7a6 6 0 0112 0v3" stroke="#4fc3f7" stroke-width="1.5" fill="none" stroke-linecap="round" />
+          <!-- Keyhole -->
+          <circle cx="10" cy="19" r="2.5" fill="#4fc3f7" opacity="0.6" />
+          <rect x="9" y="19" width="2" height="4" rx="0.5" fill="#4fc3f7" opacity="0.6" />
+        </g>
+
+        <!-- Label -->
+        <text x="460" y="225" fill="#888888" font-size="11" font-family="var(--font-sans)" text-anchor="middle">Encrypted Cloud</text>
+      </g>
+
+      <!-- ============================================ -->
+      <!-- RIGHT COLUMN: Agent Nodes                    -->
+      <!-- ============================================ -->
+
+      <!-- Claude Code -->
+      <g class="flow-node" data-connections="path-0,path-3" data-label="Claude Code&#10;Anthropic's coding agent">
+        <rect x="740" y="55" width="120" height="50" rx="8" fill="#16213e" stroke="#2a2a4a" stroke-width="1" filter="url(#node-glow)" />
+        <!-- Terminal icon -->
+        <g transform="translate(752, 68)">
+          <rect x="0" y="0" width="16" height="12" rx="2" stroke="#4fc3f7" stroke-width="1.2" fill="none" />
+          <path d="M3 4l4 3-4 3" stroke="#4fc3f7" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          <line x1="9" y1="9" x2="13" y2="9" stroke="#4fc3f7" stroke-width="1.2" stroke-linecap="round" />
+        </g>
+        <text x="778" y="81" fill="#e0e0e0" font-size="10.5" font-family="var(--font-sans)" dominant-baseline="middle">Claude Code</text>
+      </g>
+
+      <!-- OpenClaw -->
+      <g class="flow-node" data-connections="path-1,path-4" data-label="OpenClaw&#10;Open-source agent">
+        <rect x="740" y="175" width="120" height="50" rx="8" fill="#16213e" stroke="#2a2a4a" stroke-width="1" filter="url(#node-glow)" />
+        <!-- Claw/paw icon -->
+        <g transform="translate(752, 187)">
+          <circle cx="4" cy="2" r="2" fill="#4fc3f7" opacity="0.5" />
+          <circle cx="10" cy="1" r="2" fill="#4fc3f7" opacity="0.5" />
+          <circle cx="15" cy="2.5" r="2" fill="#4fc3f7" opacity="0.5" />
+          <ellipse cx="9.5" cy="8" rx="6" ry="5" fill="#4fc3f7" opacity="0.3" stroke="#4fc3f7" stroke-width="1" />
+        </g>
+        <text x="778" y="201" fill="#e0e0e0" font-size="10.5" font-family="var(--font-sans)" dominant-baseline="middle">OpenClaw</text>
+      </g>
+
+      <!-- Any Agent -->
+      <g class="flow-node" data-connections="path-2,path-5" data-label="Any Agent&#10;Extensible adapter system">
+        <rect x="740" y="295" width="120" height="50" rx="8" fill="#16213e" stroke="#2a2a4a" stroke-width="1" filter="url(#node-glow)" />
+        <!-- Plus icon -->
+        <g transform="translate(752, 307)">
+          <circle cx="8" cy="8" r="8" stroke="#4fc3f7" stroke-width="1.2" fill="none" stroke-dasharray="3 2" />
+          <line x1="8" y1="4" x2="8" y2="12" stroke="#4fc3f7" stroke-width="1.5" stroke-linecap="round" />
+          <line x1="4" y1="8" x2="12" y2="8" stroke="#4fc3f7" stroke-width="1.5" stroke-linecap="round" />
+        </g>
+        <text x="778" y="321" fill="#e0e0e0" font-size="10.5" font-family="var(--font-sans)" dominant-baseline="middle">Any Agent</text>
+      </g>
+
+      <!-- ============================================ -->
+      <!-- LEGEND                                       -->
+      <!-- ============================================ -->
+      <g transform="translate(350, 370)">
+        <circle cx="0" cy="0" r="4" fill="#4fc3f7" />
+        <text x="10" y="4" fill="#888888" font-size="10" font-family="var(--font-sans)">= your data</text>
+        <circle cx="110" cy="0" r="4" fill="#ffd54f" />
+        <text x="120" y="4" fill="#888888" font-size="10" font-family="var(--font-sans)">= encrypted</text>
+      </g>
+    </svg>
+
+    <!-- Tooltip -->
+    <div id="sync-flow-tooltip" class="sync-tooltip">
+      <span id="sync-flow-tooltip-text"></span>
+    </div>
+  </div>
+
+  <!-- Mobile simplified version -->
+  <div class="md:hidden flex flex-col items-center gap-6 py-8 max-w-sm mx-auto">
+    <!-- Device row -->
+    <div class="flex gap-3">
+      <div class="bg-brand-surface border border-brand-border rounded-lg px-4 py-3 flex flex-col items-center gap-1">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <rect x="1" y="2" width="18" height="12" rx="2" stroke="#4fc3f7" stroke-width="1.2" fill="none" />
+          <path d="M0 15h20" stroke="#4fc3f7" stroke-width="1.2" stroke-linecap="round" />
+        </svg>
+        <span class="text-xs text-brand-text">MacBook</span>
+      </div>
+      <div class="bg-brand-surface border border-brand-border rounded-lg px-4 py-3 flex flex-col items-center gap-1">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <rect x="2" y="1" width="16" height="11" rx="2" stroke="#4fc3f7" stroke-width="1.2" fill="none" />
+          <line x1="10" y1="13" x2="10" y2="16" stroke="#4fc3f7" stroke-width="1.2" />
+          <line x1="6" y1="16" x2="14" y2="16" stroke="#4fc3f7" stroke-width="1.2" stroke-linecap="round" />
+        </svg>
+        <span class="text-xs text-brand-text">Desktop</span>
+      </div>
+      <div class="bg-brand-surface border border-brand-border rounded-lg px-4 py-3 flex flex-col items-center gap-1">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <rect x="5" y="1" width="10" height="18" rx="2" stroke="#4fc3f7" stroke-width="1.2" fill="none" />
+          <circle cx="10" cy="16" r="1" fill="#4fc3f7" opacity="0.5" />
+        </svg>
+        <span class="text-xs text-brand-text">iPhone</span>
+      </div>
+    </div>
+
+    <!-- Down arrow -->
+    <div class="flex flex-col items-center gap-1">
+      <span class="text-brand-accent font-mono text-sm tracking-wide">encrypted</span>
+      <svg width="20" height="24" viewBox="0 0 20 24" fill="none">
+        <path d="M10 0v20M4 16l6 6 6-6" stroke="#4fc3f7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </div>
+
+    <!-- Cloud -->
+    <div class="bg-brand-surface border border-brand-border rounded-xl px-6 py-4 flex items-center gap-3">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+        <rect x="5" y="11" width="14" height="10" rx="2" stroke="#4fc3f7" stroke-width="1.3" fill="none" />
+        <path d="M8 11V8a4 4 0 018 0v3" stroke="#4fc3f7" stroke-width="1.3" fill="none" stroke-linecap="round" />
+        <circle cx="12" cy="16" r="1.5" fill="#4fc3f7" opacity="0.6" />
+      </svg>
+      <span class="text-brand-text font-medium text-sm">Encrypted Cloud</span>
+    </div>
+
+    <!-- Down arrow -->
+    <div class="flex flex-col items-center gap-1">
+      <svg width="20" height="24" viewBox="0 0 20 24" fill="none">
+        <path d="M10 0v20M4 16l6 6 6-6" stroke="#4fc3f7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      <span class="text-brand-accent font-mono text-sm tracking-wide">decrypted</span>
+    </div>
+
+    <!-- Agent row -->
+    <div class="flex gap-3">
+      <div class="bg-brand-surface border border-brand-border rounded-lg px-4 py-3 flex flex-col items-center gap-1">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <rect x="1" y="2" width="18" height="14" rx="2" stroke="#4fc3f7" stroke-width="1.2" fill="none" />
+          <path d="M4 7l4 3-4 3" stroke="#4fc3f7" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          <line x1="10" y1="12" x2="15" y2="12" stroke="#4fc3f7" stroke-width="1.2" stroke-linecap="round" />
+        </svg>
+        <span class="text-xs text-brand-text">Claude</span>
+      </div>
+      <div class="bg-brand-surface border border-brand-border rounded-lg px-4 py-3 flex flex-col items-center gap-1">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <circle cx="5" cy="5" r="2.5" fill="#4fc3f7" opacity="0.4" />
+          <circle cx="11" cy="4" r="2.5" fill="#4fc3f7" opacity="0.4" />
+          <circle cx="16" cy="6" r="2.5" fill="#4fc3f7" opacity="0.4" />
+          <ellipse cx="10" cy="13" rx="6" ry="5" fill="#4fc3f7" opacity="0.2" stroke="#4fc3f7" stroke-width="1" />
+        </svg>
+        <span class="text-xs text-brand-text">OpenClaw</span>
+      </div>
+      <div class="bg-brand-surface border border-brand-border rounded-lg px-4 py-3 flex flex-col items-center gap-1">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <circle cx="10" cy="10" r="8" stroke="#4fc3f7" stroke-width="1.2" fill="none" stroke-dasharray="3 2" />
+          <line x1="10" y1="6" x2="10" y2="14" stroke="#4fc3f7" stroke-width="1.5" stroke-linecap="round" />
+          <line x1="6" y1="10" x2="14" y2="10" stroke="#4fc3f7" stroke-width="1.5" stroke-linecap="round" />
+        </svg>
+        <span class="text-xs text-brand-text">Any Agent</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .sync-tooltip {
+    position: absolute;
+    pointer-events: none;
+    background: #0f1729;
+    border: 1px solid #2a2a4a;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: #e0e0e0;
+    white-space: pre-line;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 20;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  }
+
+  .sync-tooltip.visible {
+    opacity: 1;
+  }
+
+  .flow-node {
+    cursor: pointer;
+    transition: transform 0.2s ease;
+  }
+
+  .flow-node rect {
+    transition: stroke 0.2s ease, stroke-width 0.2s ease;
+  }
+
+  .flow-node:hover rect {
+    stroke: #4fc3f7;
+    stroke-width: 1.5;
+  }
+
+  .flow-path {
+    transition: opacity 0.3s ease, stroke 0.3s ease;
+  }
+</style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const svg = document.getElementById('sync-flow-svg');
+    if (!svg) return;
+
+    const paths = svg.querySelectorAll('.flow-path');
+    const nodes = svg.querySelectorAll('.flow-node');
+    const tooltip = document.getElementById('sync-flow-tooltip');
+    const tooltipText = document.getElementById('sync-flow-tooltip-text');
+    const particles: {
+      el: SVGCircleElement;
+      path: SVGPathElement;
+      totalLength: number;
+      progress: number;
+      speed: number;
+      isLeftToRight: boolean;
+    }[] = [];
+
+    // Tag paths with indices for connection lookup
+    paths.forEach((path, i) => {
+      path.setAttribute('data-path-index', String(i));
+    });
+
+    // ── Particle animation ──────────────────────────
+
+    let isVisible = false;
+    let animating = false;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        isVisible = entries[0].isIntersecting;
+        if (isVisible && !animating) animate();
+      },
+      { threshold: 0.2 }
+    );
+    observer.observe(svg);
+
+    // Create particles for each path
+    paths.forEach((path, i) => {
+      const svgPath = path as SVGPathElement;
+      const totalLength = svgPath.getTotalLength();
+
+      for (let j = 0; j < 2; j++) {
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('r', '3');
+        circle.setAttribute('fill', '#4fc3f7');
+        circle.style.filter = 'drop-shadow(0 0 4px rgba(79,195,247,0.6))';
+        circle.style.pointerEvents = 'none';
+        svg.appendChild(circle);
+
+        particles.push({
+          el: circle,
+          path: svgPath,
+          totalLength,
+          progress: j * 0.5 + Math.random() * 0.15,
+          speed: 0.002 + Math.random() * 0.001,
+          isLeftToRight: i < 3,
+        });
+      }
+    });
+
+    function animate() {
+      if (!isVisible) {
+        animating = false;
+        return;
+      }
+      animating = true;
+
+      particles.forEach((p) => {
+        p.progress += p.speed;
+        if (p.progress > 1) p.progress -= 1;
+
+        const point = p.path.getPointAtLength(p.progress * p.totalLength);
+        p.el.setAttribute('cx', String(point.x));
+        p.el.setAttribute('cy', String(point.y));
+
+        // Visual encryption effect near the cloud center (x ~400-510)
+        const cloudCenter = 450;
+        const cloudProximity = 1 - Math.min(Math.abs(point.x - cloudCenter) / 200, 1);
+
+        if (cloudProximity > 0.5) {
+          p.el.setAttribute('fill', '#ffd54f');
+          p.el.setAttribute('r', '4');
+          p.el.style.filter = 'drop-shadow(0 0 6px rgba(255,213,79,0.8))';
+        } else {
+          p.el.setAttribute('fill', '#4fc3f7');
+          p.el.setAttribute('r', '3');
+          p.el.style.filter = 'drop-shadow(0 0 4px rgba(79,195,247,0.6))';
+        }
+      });
+
+      requestAnimationFrame(animate);
+    }
+
+    // ── Hover interactivity ─────────────────────────
+
+    nodes.forEach((node) => {
+      node.addEventListener('mouseenter', (e) => {
+        const connections = node.getAttribute('data-connections');
+        if (!connections) return;
+
+        const connectedIndices = connections.split(',').map((c) => {
+          const match = c.trim().match(/path-(\d+)/);
+          return match ? parseInt(match[1], 10) : -1;
+        });
+
+        // Highlight connected paths, dim others
+        paths.forEach((path, i) => {
+          if (connectedIndices.includes(i)) {
+            (path as SVGPathElement).style.opacity = '0.8';
+            (path as SVGPathElement).style.stroke = '#4fc3f7';
+          } else {
+            (path as SVGPathElement).style.opacity = '0.08';
+          }
+        });
+
+        // Highlight the node's rect
+        const rect = node.querySelector('rect');
+        if (rect) {
+          rect.style.stroke = '#4fc3f7';
+          rect.style.strokeWidth = '1.5';
+        }
+
+        // Show tooltip
+        const label = node.getAttribute('data-label');
+        if (label && tooltip && tooltipText) {
+          tooltipText.textContent = label;
+          tooltip.classList.add('visible');
+        }
+      });
+
+      node.addEventListener('mousemove', (e) => {
+        if (!tooltip) return;
+        const mouseEvent = e as MouseEvent;
+        const container = svg.closest('div');
+        if (!container) return;
+        const rect = container.getBoundingClientRect();
+        tooltip.style.left = `${mouseEvent.clientX - rect.left + 12}px`;
+        tooltip.style.top = `${mouseEvent.clientY - rect.top - 10}px`;
+      });
+
+      node.addEventListener('mouseleave', () => {
+        // Reset all paths
+        paths.forEach((path) => {
+          (path as SVGPathElement).style.opacity = '0.3';
+          (path as SVGPathElement).style.stroke = '#2a2a4a';
+        });
+
+        // Reset node rect
+        const rect = node.querySelector('rect');
+        if (rect) {
+          rect.style.stroke = '#2a2a4a';
+          rect.style.strokeWidth = '1';
+        }
+
+        // Hide tooltip
+        if (tooltip) {
+          tooltip.classList.remove('visible');
+        }
+      });
+    });
+  });
+</script>

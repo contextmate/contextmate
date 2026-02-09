@@ -1,0 +1,51 @@
+@import "tailwindcss";
+@source "../**/*.astro";
+
+@theme {
+  --color-brand-bg: #1a1a2e;
+  --color-brand-surface: #16213e;
+  --color-brand-deep: #0f1729;
+  --color-brand-border: #2a2a4a;
+  --color-brand-accent: #4fc3f7;
+  --color-brand-accent-hover: #39a8db;
+  --color-brand-text: #e0e0e0;
+  --color-brand-muted: #888888;
+  --color-brand-dim: #666666;
+  --color-brand-success: #66bb6a;
+  --color-brand-error: #ff6b6b;
+  --color-brand-warning: #ffd54f;
+
+  --font-sans: 'Satoshi', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-brand-bg);
+    color: var(--color-brand-text);
+    line-height: 1.6;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background: rgba(79, 195, 247, 0.3);
+    color: #fff;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+}
+
+.no-underline:hover {
+  text-decoration: none !important;
+}

@@ -1,0 +1,68 @@
+---
+const linkColumns = [
+  {
+    heading: 'Links',
+    items: [
+      { label: 'GitHub', href: 'https://github.com/contextmate/contextmate', external: true },
+      { label: 'Documentation', href: 'https://github.com/contextmate/contextmate#readme', external: true },
+      { label: 'Security Model', href: '/security', external: false },
+    ],
+  },
+  {
+    heading: 'Project',
+    items: [
+      { label: 'MIT License', href: 'https://github.com/contextmate/contextmate/blob/main/LICENSE', external: true },
+      { label: 'Changelog', href: 'https://github.com/contextmate/contextmate/blob/main/CHANGELOG.md', external: true },
+      { label: 'Privacy', href: '/privacy', external: false },
+    ],
+  },
+];
+---
+
+<footer class="bg-brand-deep border-t border-brand-border">
+  <div class="max-w-6xl mx-auto px-6 py-12">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <!-- Column 1: Brand -->
+      <div>
+        <a href="/" class="font-mono font-bold text-lg text-brand-accent no-underline">
+          ContextMate
+        </a>
+        <p class="mt-2 text-sm text-brand-muted">
+          Zero-knowledge sync for AI agent context.
+        </p>
+      </div>
+
+      <!-- Column 2 & 3: Link lists -->
+      {linkColumns.map((column) => (
+        <div>
+          <h3 class="text-sm font-semibold uppercase tracking-wider text-brand-muted mb-3">
+            {column.heading}
+          </h3>
+          <ul class="list-none space-y-2">
+            {column.items.map((item) => (
+              <li>
+                <a
+                  href={item.href}
+                  class="text-sm text-brand-muted hover:text-brand-accent transition-colors no-underline"
+                  {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                >
+                  {item.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+
+    <!-- Bottom bar -->
+    <div class="mt-8 pt-8 border-t border-brand-border text-center space-y-2">
+      <p class="text-xs text-brand-dim">
+        Built by <a href="https://github.com/alexfurm7" class="text-brand-muted hover:text-brand-accent transition-colors" target="_blank" rel="noopener noreferrer">Alex Furmansky</a> at <a href="https://github.com/MagneticStudio" class="text-brand-muted hover:text-brand-accent transition-colors" target="_blank" rel="noopener noreferrer">MagneticStudio</a>
+      </p>
+      <p class="text-xs text-brand-dim">
+        The product has zero tracking and zero telemetry. This site uses <a href="/privacy" class="text-brand-muted hover:text-brand-accent transition-colors">privacy-respecting analytics</a>.
+      </p>
+    </div>
+  </div>
+</footer>

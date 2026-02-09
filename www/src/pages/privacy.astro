@@ -1,0 +1,156 @@
+---
+import Base from '../layouts/Base.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+---
+
+<Base
+  title="Privacy | ContextMate"
+  description="How ContextMate handles privacy across the product and this website."
+>
+  <Header />
+
+  <main class="pt-24 pb-16 px-6">
+    <article class="max-w-3xl mx-auto">
+
+      <header class="mb-16">
+        <h1 class="font-mono text-3xl md:text-4xl font-bold mb-4">
+          Privacy
+        </h1>
+        <p class="text-brand-muted text-lg">
+          We draw a hard line between the product and this website.
+        </p>
+      </header>
+
+      <!-- The Product -->
+      <section class="mb-14">
+        <h2 class="font-mono text-xl font-bold mb-4 text-brand-accent">The product: zero tracking</h2>
+        <div class="prose-custom">
+          <p>
+            ContextMate the software (the CLI, the sync engine, the MCP server) collects
+            <strong>no telemetry, no analytics, and no usage data</strong>. Nothing phones home.
+            No anonymous usage stats. No crash reports. Nothing.
+          </p>
+          <p>
+            Your files are encrypted on your device before they leave it. The server stores only
+            encrypted blobs it cannot read. Your passphrase and encryption keys never leave your machine.
+            See the <a href="/security" class="text-brand-accent hover:underline">security model</a> for the full details.
+          </p>
+        </div>
+      </section>
+
+      <!-- This Website -->
+      <section class="mb-14">
+        <h2 class="font-mono text-xl font-bold mb-4 text-brand-accent">This website: minimal analytics</h2>
+        <div class="prose-custom">
+          <p>
+            This marketing site (contextmate.dev) uses <strong>PostHog</strong> for basic, anonymous analytics.
+            We track:
+          </p>
+          <ul class="list-disc list-inside text-brand-muted space-y-1 my-4 ml-2">
+            <li>Page views (which pages are visited)</li>
+            <li>Install command copies (did someone click the copy button)</li>
+            <li>General traffic sources and geography (country-level)</li>
+          </ul>
+          <p>
+            We do <strong>not</strong> track:
+          </p>
+          <ul class="list-disc list-inside text-brand-muted space-y-1 my-4 ml-2">
+            <li>Personal identity (no login, no email collection)</li>
+            <li>Cross-site browsing behavior</li>
+            <li>Detailed device fingerprinting</li>
+          </ul>
+          <p>
+            All analytics profiles are anonymous. We use this data to understand whether
+            our documentation is clear and which parts of the site people find useful.
+          </p>
+        </div>
+      </section>
+
+      <!-- Cookies -->
+      <section class="mb-14">
+        <h2 class="font-mono text-xl font-bold mb-4 text-brand-accent">Cookies</h2>
+        <div class="prose-custom">
+          <p>
+            PostHog sets a first-party cookie to distinguish unique visitors. No third-party
+            advertising or tracking cookies are used. Google Fonts and Fontshare are loaded for
+            typography; they may set their own cookies per their respective privacy policies.
+          </p>
+        </div>
+      </section>
+
+      <!-- Third Parties -->
+      <section class="mb-14">
+        <h2 class="font-mono text-xl font-bold mb-4 text-brand-accent">Third-party services</h2>
+        <div class="bg-brand-surface border border-brand-border rounded-xl overflow-hidden my-6">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-brand-border">
+                <th class="text-left font-mono font-medium text-brand-muted px-4 py-3">Service</th>
+                <th class="text-left font-mono font-medium text-brand-muted px-4 py-3">Purpose</th>
+                <th class="text-left font-mono font-medium text-brand-muted px-4 py-3">Data</th>
+              </tr>
+            </thead>
+            <tbody class="text-brand-text">
+              <tr class="border-b border-brand-border/50">
+                <td class="px-4 py-3">PostHog</td>
+                <td class="px-4 py-3 text-brand-muted">Website analytics</td>
+                <td class="px-4 py-3 text-brand-muted">Anonymous page views, events</td>
+              </tr>
+              <tr class="border-b border-brand-border/50">
+                <td class="px-4 py-3">Google Fonts</td>
+                <td class="px-4 py-3 text-brand-muted">Typography (JetBrains Mono)</td>
+                <td class="px-4 py-3 text-brand-muted">Font file requests</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3">Fontshare</td>
+                <td class="px-4 py-3 text-brand-muted">Typography (Satoshi)</td>
+                <td class="px-4 py-3 text-brand-muted">Font file requests</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Open Source -->
+      <section class="mb-14">
+        <h2 class="font-mono text-xl font-bold mb-4 text-brand-accent">Verify it yourself</h2>
+        <div class="prose-custom">
+          <p>
+            The entire ContextMate codebase, including this website, is
+            <a href="https://github.com/contextmate/contextmate" class="text-brand-accent hover:underline">open source</a>.
+            You can inspect exactly what data the product collects (none) and what this site tracks
+            (the PostHog snippet in our page source).
+          </p>
+        </div>
+      </section>
+
+      <!-- Contact -->
+      <section class="mb-14">
+        <h2 class="font-mono text-xl font-bold mb-4 text-brand-accent">Questions?</h2>
+        <div class="prose-custom">
+          <p>
+            Open an issue on <a href="https://github.com/contextmate/contextmate/issues" class="text-brand-accent hover:underline">GitHub</a>
+            or reach out to the maintainers. We're happy to answer anything about how we handle data.
+          </p>
+        </div>
+      </section>
+
+    </article>
+  </main>
+
+  <Footer />
+</Base>
+
+<style>
+  .prose-custom p {
+    color: var(--color-brand-muted);
+    line-height: 1.75;
+    margin-bottom: 1rem;
+  }
+
+  .prose-custom p strong {
+    color: var(--color-brand-text);
+    font-weight: 600;
+  }
+</style>

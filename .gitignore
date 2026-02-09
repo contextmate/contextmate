@@ -1,0 +1,49 @@
+node_modules/
+dist/
+*.js.map
+*.d.ts
+!src/**/*.d.ts
+
+# Lock files (regenerated on install)
+package-lock.json
+
+# Data files
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Test coverage
+coverage/
+
+# Server data
+server/data/
+
+# Playwright MCP
+.playwright-mcp/
+
+# Astro
+www/.astro/
+
+# Build output
+www/dist/
+web/dist/
+server/dist/
+
+# Screenshots
+*.png

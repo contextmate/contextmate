@@ -1,0 +1,55 @@
+---
+import KeyDiagram from './KeyDiagram.astro';
+---
+
+<section id="security" class="py-24 px-6">
+  <div class="max-w-5xl mx-auto">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+      <!-- Left column: Key Diagram -->
+      <div>
+        <KeyDiagram />
+      </div>
+
+      <!-- Right column: Text content -->
+      <div>
+        <h2 class="font-mono text-3xl md:text-4xl font-bold mb-8">
+          Security you can verify
+        </h2>
+
+        <ul class="space-y-4">
+          <li class="flex gap-3">
+            <svg viewBox="0 0 20 20" class="w-5 h-5 mt-0.5 shrink-0">
+              <path d="M6 10l3 3 5-6" fill="none" stroke="#66bb6a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="text-brand-muted">Passphrase never transmitted. Only locally-derived keys.</span>
+          </li>
+
+          <li class="flex gap-3">
+            <svg viewBox="0 0 20 20" class="w-5 h-5 mt-0.5 shrink-0">
+              <path d="M6 10l3 3 5-6" fill="none" stroke="#66bb6a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="text-brand-muted">@noble/ciphers and @noble/hashes: audited cryptographic libraries</span>
+          </li>
+
+          <li class="flex gap-3">
+            <svg viewBox="0 0 20 20" class="w-5 h-5 mt-0.5 shrink-0">
+              <path d="M6 10l3 3 5-6" fill="none" stroke="#66bb6a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="text-brand-muted">BLAKE3 content hashing, HKDF-SHA256 key derivation</span>
+          </li>
+
+          <li class="flex gap-3">
+            <svg viewBox="0 0 20 20" class="w-5 h-5 mt-0.5 shrink-0">
+              <path d="M6 10l3 3 5-6" fill="none" stroke="#66bb6a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="text-brand-muted">Fully open source under MIT license</span>
+          </li>
+        </ul>
+
+        <a href="/security" class="inline-block text-brand-accent hover:underline mt-6">
+          Read the full security model &rarr;
+        </a>
+      </div>
+    </div>
+  </div>
+</section>

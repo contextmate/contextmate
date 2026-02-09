@@ -1,0 +1,59 @@
+---
+interface Props {
+  command: string;
+  label?: string;
+}
+
+const { command, label } = Astro.props;
+---
+
+<div class="install-block">
+  {label && (
+    <p class="text-xs text-brand-muted uppercase tracking-wider mb-2">{label}</p>
+  )}
+  <div class="flex items-center justify-between gap-4 bg-brand-deep rounded-lg border border-brand-border px-4 py-3">
+    <div class="overflow-x-auto flex-1 min-w-0">
+      <code class="font-mono text-sm whitespace-nowrap">
+        <span class="text-brand-dim select-none">$ </span><span class="install-command text-brand-text">{command}</span>
+      </code>
+    </div>
+    <button
+      type="button"
+      class="copy-btn text-xs text-brand-muted hover:text-brand-accent transition cursor-pointer shrink-0"
+      data-command={command}
+    >
+      Copy
+    </button>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('.copy-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const command = btn.getAttribute('data-command');
+      if (!command) return;
+
+      try {
+        await navigator.clipboard.writeText(command);
+        if (window.posthog) {
+          window.posthog.capture('install_command_copied', { command });
+        }
+        const original = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => {
+          btn.textContent = original;
+        }, 2000);
+      } catch {
+        // Fallback: select the command text
+        const code = btn.closest('.install-block')?.querySelector('.install-command');
+        if (code) {
+          const range = document.createRange();
+          range.selectNodeContents(code);
+          const sel = window.getSelection();
+          sel?.removeAllRanges();
+          sel?.addRange(range);
+        }
+      }
+    });
+  });
+</script>

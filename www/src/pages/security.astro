@@ -1,0 +1,270 @@
+---
+import Base from '../layouts/Base.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+---
+
+<Base
+  title="Security Model | ContextMate"
+  description="How ContextMate protects your AI agent knowledge with zero-knowledge encryption, client-side key derivation, and audited cryptographic libraries."
+>
+  <Header />
+
+  <main class="pt-24 pb-16 px-6">
+    <article class="max-w-3xl mx-auto">
+
+      <!-- Title -->
+      <header class="mb-16">
+        <h1 class="font-mono text-3xl md:text-4xl font-bold mb-4">
+          Security Model
+        </h1>
+        <p class="text-brand-muted text-lg">
+          ContextMate is built on a zero-knowledge architecture. Your passphrase never leaves your device.
+          The server stores only encrypted blobs it cannot read.
+        </p>
+      </header>
+
+      <!-- Zero-Knowledge Overview -->
+      <section class="mb-14">
+        <h2 class="font-mono text-xl font-bold mb-4 text-brand-accent">Zero-knowledge by design</h2>
+        <div class="prose-custom">
+          <p>
+            Every file is encrypted on your machine before it touches the network. The server has no way to decrypt your content,
+            derive your keys, or read your data. Even if the server were compromised or legally compelled to hand over data,
+            an attacker would get only encrypted blobs with no practical path to decryption.
+          </p>
+          <p>
+            There is no "forgot password" flow. If you lose your passphrase, your data is unrecoverable. This is a deliberate
+            tradeoff: we chose strong guarantees over convenience.
+          </p>
+        </div>
+      </section>
+
+      <!-- Key Hierarchy -->
+      <section class="mb-14">
+        <h2 class="font-mono text-xl font-bold mb-4 text-brand-accent">Key derivation hierarchy</h2>
+        <div class="prose-custom">
+          <p>
+            All encryption keys are derived from a single passphrase through a three-stage hierarchy.
+            No keys are stored in plaintext anywhere.
+          </p>
+        </div>
+
+        <!-- Diagram -->
+        <div class="bg-brand-surface border border-brand-border rounded-xl p-6 md:p-8 my-6 overflow-x-auto">
+          <pre class="font-mono text-sm text-brand-text leading-relaxed"><span class="text-brand-muted">Passphrase</span>
+    │
+    ▼  <span class="text-brand-success">Argon2id</span> (memory-hard KDF)
+    │
+<span class="text-brand-accent font-bold">Master Key</span> (256-bit)
+    │
+    ├─ HKDF-SHA256 ──▶  <span class="text-brand-text">Vault Key</span>   ──▶  per-folder  ──▶  per-file keys
+    │                                       (AES-256-GCM)
+    ├─ HKDF-SHA256 ──▶  <span class="text-brand-text">Auth Key</span>    ──▶  BLAKE3 hash sent to server
+    │
+    └─ HKDF-SHA256 ──▶  <span class="text-brand-dim">Sharing Key</span>  (reserved for future use)</pre>
+        </div>
+
+        <div class="prose-custom">
+          <p>
+            <strong>Stage 1: Passphrase to Master Key.</strong> Your passphrase is processed through Argon2id, a memory-hard
+            key derivation function designed to resist GPU and ASIC-based brute-force attacks. A random 256-bit salt is generated
+            per user and stored server-side (the salt alone is useless without the passphrase).
+          </p>
+          <p>
+            <strong>Stage 2: Master Key to domain keys.</strong> HKDF-SHA256 derives three independent keys from the Master Key.
+            Each branch uses a unique context string, ensuring compromise of one key reveals nothing about the others.
+          </p>
+          <p>
+            <strong>Stage 3: Vault Key to file keys.</strong> The Vault Key is further derived into per-folder and per-file keys
+            using HKDF. This hierarchical approach means individual file keys can be computed on-the-fly from the passphrase
+            without storing any key material on disk.
+          </p>
+        </div>
+      </section>
+
+      <!-- Encryption -->
+      <section class="mb-14">
+        <h2 class="font-mono text-xl font-bold mb-4 text-brand-accent">File encryption</h2>
+        <div class="prose-custom">
+          <p>
+            Each file is encrypted with <strong>AES-256-GCM</strong> (Galois/Counter Mode), an authenticated encryption algorithm
+            that provides both confidentiality and integrity in a single operation. A fresh random 12-byte nonce is generated
+            for every file encryption, ensuring no two encryptions produce the same ciphertext even for identical content.
+          </p>
+          <p>
+            The encrypted format includes a version prefix, enabling future algorithm upgrades without breaking existing vaults.
+          </p>
+        </div>
+      </section>
+
+      <!-- Content Hashing -->
+      <section class="mb-14">
+        <h2 class="font-mono text-xl font-bold mb-4 text-brand-accent">Content integrity</h2>
+        <div class="prose-custom">
+          <p>
+            File content is hashed with <strong>BLAKE3</strong> before encryption. These hashes are used for conflict detection
+            and sync protocol operations. BLAKE3 is a modern cryptographic hash function that is both fast and resistant to
+            length-extension attacks.
+          </p>
+        </div>
+      </section>
+
+      <!-- What stays local -->
+      <section class="mb-14">
+        <h2 class="font-mono text-xl font-bold mb-4 text-brand-accent">What stays on your machine</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-6">
+          <div class="bg-brand-surface border border-brand-border rounded-xl p-6">
+            <h3 class="font-mono text-sm font-bold text-brand-success mb-3">Never leaves your device</h3>
+            <ul class="space-y-2 text-sm text-brand-muted">
+              <li class="flex gap-2">
+                <span class="text-brand-success shrink-0">&#10003;</span>
+                Your passphrase
+              </li>
+              <li class="flex gap-2">
+                <span class="text-brand-success shrink-0">&#10003;</span>
+                Master Key and all derived encryption keys
+              </li>
+              <li class="flex gap-2">
+                <span class="text-brand-success shrink-0">&#10003;</span>
+                Plaintext file content
+              </li>
+              <li class="flex gap-2">
+                <span class="text-brand-success shrink-0">&#10003;</span>
+                Local vault directory
+              </li>
+            </ul>
+          </div>
+          <div class="bg-brand-surface border border-brand-border rounded-xl p-6">
+            <h3 class="font-mono text-sm font-bold text-brand-muted mb-3">Stored on the server</h3>
+            <ul class="space-y-2 text-sm text-brand-muted">
+              <li class="flex gap-2">
+                <span class="text-brand-dim shrink-0">&#8594;</span>
+                Encrypted file blobs (AES-256-GCM ciphertext)
+              </li>
+              <li class="flex gap-2">
+                <span class="text-brand-dim shrink-0">&#8594;</span>
+                Argon2id salt (useless without passphrase)
+              </li>
+              <li class="flex gap-2">
+                <span class="text-brand-dim shrink-0">&#8594;</span>
+                Auth key hash (BLAKE3 digest, not the key)
+              </li>
+              <li class="flex gap-2">
+                <span class="text-brand-dim shrink-0">&#8594;</span>
+                File metadata (paths, versions, timestamps)
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Authentication -->
+      <section class="mb-14">
+        <h2 class="font-mono text-xl font-bold mb-4 text-brand-accent">Authentication</h2>
+        <div class="prose-custom">
+          <p>
+            The server never receives your Auth Key directly. Instead, the client computes a BLAKE3 hash of the Auth Key and sends
+            that hash during registration and login. The server stores only the hash and verifies it using constant-time comparison
+            to prevent timing attacks.
+          </p>
+          <p>
+            API keys for programmatic access (e.g., MCP server integrations) are stored as SHA-256 hashes and support
+            path-based scoping and permission levels (read, write, or both). Keys can be revoked at any time.
+          </p>
+        </div>
+      </section>
+
+      <!-- Libraries -->
+      <section class="mb-14">
+        <h2 class="font-mono text-xl font-bold mb-4 text-brand-accent">Cryptographic libraries</h2>
+        <div class="prose-custom">
+          <p>
+            ContextMate uses the <strong>@noble</strong> family of cryptographic libraries, which are peer-reviewed,
+            independently audited, and focused on constant-time implementations to prevent side-channel attacks.
+          </p>
+        </div>
+        <div class="bg-brand-surface border border-brand-border rounded-xl overflow-hidden my-6">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-brand-border">
+                <th class="text-left font-mono font-medium text-brand-muted px-4 py-3">Purpose</th>
+                <th class="text-left font-mono font-medium text-brand-muted px-4 py-3">Library</th>
+              </tr>
+            </thead>
+            <tbody class="text-brand-text">
+              <tr class="border-b border-brand-border/50">
+                <td class="px-4 py-3">Passphrase KDF</td>
+                <td class="px-4 py-3 font-mono text-xs">argon2 (Argon2id)</td>
+              </tr>
+              <tr class="border-b border-brand-border/50">
+                <td class="px-4 py-3">Key derivation</td>
+                <td class="px-4 py-3 font-mono text-xs">@noble/hashes (HKDF-SHA256)</td>
+              </tr>
+              <tr class="border-b border-brand-border/50">
+                <td class="px-4 py-3">Encryption</td>
+                <td class="px-4 py-3 font-mono text-xs">@noble/ciphers (AES-256-GCM)</td>
+              </tr>
+              <tr class="border-b border-brand-border/50">
+                <td class="px-4 py-3">Content hashing</td>
+                <td class="px-4 py-3 font-mono text-xs">@noble/hashes (BLAKE3)</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3">Random bytes</td>
+                <td class="px-4 py-3 font-mono text-xs">Web Crypto API (crypto.getRandomValues)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Server Compromise -->
+      <section class="mb-14">
+        <h2 class="font-mono text-xl font-bold mb-4 text-brand-accent">What happens if the server is compromised?</h2>
+        <div class="prose-custom">
+          <p>
+            An attacker with full server access would obtain encrypted blobs, auth key hashes, and Argon2id salts.
+            They would <strong>not</strong> have any plaintext content, encryption keys, or passphrases.
+          </p>
+          <p>
+            Decrypting the data would require brute-forcing each user's passphrase through Argon2id, which is designed
+            to be computationally and memory-intensive. A strong passphrase makes this practically infeasible.
+          </p>
+        </div>
+      </section>
+
+      <!-- Open Source -->
+      <section class="mb-14">
+        <h2 class="font-mono text-xl font-bold mb-4 text-brand-accent">Open source and auditable</h2>
+        <div class="prose-custom">
+          <p>
+            The entire ContextMate codebase is open source under the MIT license. Every cryptographic operation
+            can be inspected, verified, and audited by anyone. We believe security through transparency is stronger
+            than security through obscurity.
+          </p>
+          <p>
+            <a href="https://github.com/contextmate/contextmate" class="text-brand-accent hover:underline">
+              View the source on GitHub &rarr;
+            </a>
+          </p>
+        </div>
+      </section>
+
+    </article>
+  </main>
+
+  <Footer />
+</Base>
+
+<style>
+  .prose-custom p {
+    color: var(--color-brand-muted);
+    line-height: 1.75;
+    margin-bottom: 1rem;
+  }
+
+  .prose-custom p strong {
+    color: var(--color-brand-text);
+    font-weight: 600;
+  }
+</style>
