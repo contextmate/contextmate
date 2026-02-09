@@ -102,10 +102,72 @@ export const initCommand = new Command('init')
       // Create auth hash for server registration
       const authHash = createAuthHash(authKey);
       const authPath = join(config.data.path, 'auth.json');
-      await writeFile(authPath, JSON.stringify({ authHash }, null, 2), { mode: 0o600 });
 
-      console.log('');
-      console.log(chalk.green('ContextMate initialized successfully!'));
+      // Register with the server
+      console.log(chalk.dim('Registering with server...'));
+      try {
+        const res = await fetch(`${config.server.url}/api/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            authKeyHash: authHash,
+            salt: bytesToHex(salt),
+            encryptedMasterKey: bytesToHex(encryptedMasterKey),
+          }),
+        });
+
+        if (res.ok) {
+          const { userId, token } = (await res.json()) as { userId: string; token: string };
+          await writeFile(
+            authPath,
+            JSON.stringify({ authHash, userId, token }, null, 2),
+            { mode: 0o600 },
+          );
+          console.log('');
+          console.log(chalk.green('ContextMate initialized successfully!'));
+          console.log('');
+          console.log(`  ${chalk.bold('User ID:')}  ${userId}`);
+          console.log(`  ${chalk.bold('Server:')}   ${config.server.url}`);
+        } else if (res.status === 409) {
+          // User already exists on server — save auth hash locally and log in
+          console.log(chalk.dim('Account already exists on server, logging in...'));
+          const loginRes = await fetch(`${config.server.url}/api/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ authKeyHash: authHash }),
+          });
+          if (loginRes.ok) {
+            const { userId, token } = (await loginRes.json()) as { userId: string; token: string };
+            await writeFile(
+              authPath,
+              JSON.stringify({ authHash, userId, token }, null, 2),
+              { mode: 0o600 },
+            );
+            console.log('');
+            console.log(chalk.green('ContextMate initialized successfully!'));
+            console.log('');
+            console.log(`  ${chalk.bold('User ID:')}  ${userId}`);
+            console.log(`  ${chalk.bold('Server:')}   ${config.server.url}`);
+          } else {
+            await writeFile(authPath, JSON.stringify({ authHash }, null, 2), { mode: 0o600 });
+            console.log('');
+            console.log(chalk.green('ContextMate initialized locally.'));
+            console.log(chalk.yellow('Warning: Could not log in to server.'));
+          }
+        } else {
+          await writeFile(authPath, JSON.stringify({ authHash }, null, 2), { mode: 0o600 });
+          console.log('');
+          console.log(chalk.green('ContextMate initialized locally.'));
+          console.log(chalk.yellow('Warning: Server registration failed. You can sync later.'));
+        }
+      } catch {
+        // Server unreachable — still save locally
+        await writeFile(authPath, JSON.stringify({ authHash }, null, 2), { mode: 0o600 });
+        console.log('');
+        console.log(chalk.green('ContextMate initialized locally.'));
+        console.log(chalk.yellow('Warning: Could not reach server. You can sync later.'));
+      }
+
       console.log('');
       console.log(chalk.bold('Next steps:'));
       console.log(`  ${chalk.cyan("contextmate adapter openclaw init")}  Sync OpenClaw workspace`);

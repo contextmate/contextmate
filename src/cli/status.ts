@@ -46,6 +46,22 @@ export const statusCommand = new Command('status')
       console.log(`  Data:      ${config.data.path}`);
       console.log(`  Server:    ${config.server.url}`);
 
+      // Show userId if registered
+      const authFile = (await import('node:path')).join(config.data.path, 'auth.json');
+      if (await fileExists(authFile)) {
+        const { readFile } = await import('node:fs/promises');
+        try {
+          const auth = JSON.parse(await readFile(authFile, 'utf-8'));
+          if (auth.userId) {
+            console.log(`  User ID:   ${auth.userId}`);
+          } else {
+            console.log(`  User ID:   ${chalk.dim('not registered (re-run "contextmate init")')}`);
+          }
+        } catch {
+          // ignore malformed auth file
+        }
+      }
+
       // Sync state summary
       const dbPath = getSyncDbPath(config);
       if (await fileExists(dbPath)) {
