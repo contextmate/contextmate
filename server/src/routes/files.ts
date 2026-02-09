@@ -178,8 +178,8 @@ fileRoutes.get('/*', async (c) => {
 
   const db = getDb();
   const file = db.prepare(
-    'SELECT id FROM files WHERE user_id = ? AND path = ?'
-  ).get(auth.userId, filePath);
+    'SELECT id, version, encrypted_hash FROM files WHERE user_id = ? AND path = ?'
+  ).get(auth.userId, filePath) as { id: string; version: number; encrypted_hash: string } | undefined;
 
   if (!file) {
     return c.json({ error: 'File not found' }, 404);
@@ -191,7 +191,11 @@ fileRoutes.get('/*', async (c) => {
     recordAudit(auth.userId, 'download', filePath);
 
     return new Response(new Uint8Array(data), {
-      headers: { 'Content-Type': 'application/octet-stream' },
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'X-Version': String(file.version),
+        'X-Content-Hash': file.encrypted_hash,
+      },
     });
   } catch {
     return c.json({ error: 'Blob not found' }, 404);

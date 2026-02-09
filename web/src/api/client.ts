@@ -187,8 +187,8 @@ export class ApiClient {
       headers: {
         ...this.headers(),
         'Content-Type': 'application/octet-stream',
-        'X-File-Version': String(version),
-        'X-File-Hash': hash,
+        'X-Version': String(version),
+        'X-Content-Hash': hash,
       },
       body: data,
     });

@@ -1,5 +1,5 @@
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { join, dirname } from 'node:path';
+import { readFile, writeFile, mkdir, readdir, stat } from 'node:fs/promises';
+import { join, dirname, relative } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { FileWatcher } from './watcher.js';
 import { SyncStateDB } from './state.js';
@@ -19,10 +19,10 @@ export class SyncEngine {
   private readonly config: ContextMateConfig;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
 
-  constructor(config: ContextMateConfig, vaultKey: Uint8Array) {
+  constructor(config: ContextMateConfig, vaultKey: Uint8Array, authToken?: string) {
     this.config = config;
     this.vaultKey = vaultKey;
-    this.client = new SyncClient(config.server.url, config.server.apiKey ?? '');
+    this.client = new SyncClient(config.server.url, authToken || config.server.apiKey || '');
   }
 
   async start(): Promise<void> {
@@ -199,6 +199,31 @@ export class SyncEngine {
     }
   }
 
+  private async discoverLocalFiles(dir: string, base: string): Promise<string[]> {
+    const paths: string[] = [];
+    let entries;
+    try {
+      entries = await readdir(dir);
+    } catch {
+      return paths;
+    }
+    for (const name of entries) {
+      if (name.startsWith('.') || name === 'node_modules') continue;
+      const full = join(dir, name);
+      try {
+        const s = await stat(full);
+        if (s.isDirectory()) {
+          paths.push(...await this.discoverLocalFiles(full, base));
+        } else if (s.isFile()) {
+          paths.push(relative(base, full));
+        }
+      } catch {
+        // Skip inaccessible entries
+      }
+    }
+    return paths;
+  }
+
   async syncAll(): Promise<SyncResult> {
     const result: SyncResult = {
       uploaded: [],
@@ -214,6 +239,51 @@ export class SyncEngine {
       const remoteFiles = await this.client.listRemoteFiles();
       const localFiles = this.stateDb.getAllFiles();
       const localFileMap = new Map(localFiles.map((f) => [f.path, f]));
+      const remoteFileMap = new Map(remoteFiles.map((f) => [f.path, f]));
+
+      // Discover untracked local files and upload them
+      const localDiskFiles = await this.discoverLocalFiles(this.config.vault.path, this.config.vault.path);
+      for (const filePath of localDiskFiles) {
+        if (filePath.endsWith('.conflict.md')) continue;
+        if (localFileMap.has(filePath)) continue; // Already tracked
+        if (remoteFileMap.has(filePath)) continue; // Will be handled by pull logic
+
+        try {
+          const absolutePath = join(this.config.vault.path, filePath);
+          const content = await readFile(absolutePath);
+          const contentBytes = new Uint8Array(content);
+          const contentHash = hashContent(contentBytes);
+
+          const fileKey = deriveKeyForPath(this.vaultKey, filePath);
+          const encrypted = encryptFile(contentBytes, fileKey);
+          const encryptedHash = hashContent(encrypted);
+
+          const uploadResult = await this.client.uploadFile(
+            filePath,
+            encrypted,
+            encryptedHash,
+            0,
+          );
+
+          this.stateDb.upsertFile({
+            id: randomUUID(),
+            path: filePath,
+            contentHash,
+            encryptedHash,
+            version: uploadResult.version,
+            size: contentBytes.length,
+            syncState: 'synced',
+            lastModified: Date.now(),
+          });
+          this.stateDb.addSyncLog('upload', filePath);
+          result.uploaded.push(filePath);
+        } catch (err) {
+          result.errors.push({
+            path: filePath,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
 
       // Push local changes (modified/pending files)
       const modifiedFiles = this.stateDb.getModifiedFiles();

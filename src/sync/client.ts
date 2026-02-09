@@ -70,7 +70,8 @@ export class SyncClient {
       throw new Error(`List files failed: ${response.status} ${response.statusText}`);
     }
 
-    return (await response.json()) as FileMetadata[];
+    const data = (await response.json()) as { files: FileMetadata[] };
+    return data.files;
   }
 
   async getRemoteChanges(since: number): Promise<RemoteChange[]> {

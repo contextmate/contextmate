@@ -27,6 +27,7 @@ app.use('*', cors({
   origin: allowedOrigins,
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'X-Content-Hash', 'X-Version'],
+  exposeHeaders: ['X-Version', 'X-Content-Hash'],
   maxAge: 86400,
 }));
 app.use('*', logger());

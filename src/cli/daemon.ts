@@ -99,6 +99,17 @@ const startCommand = new Command('start')
         process.exit(1);
       }
 
+      // Load auth token
+      let authToken = '';
+      try {
+        const authPath = join(config.data.path, 'auth.json');
+        const auth = JSON.parse(await readFile(authPath, 'utf-8'));
+        authToken = auth.token || '';
+      } catch {
+        console.error(chalk.red('No auth token found. Run "contextmate init" first.'));
+        process.exit(1);
+      }
+
       // Write PID file
       await writeFile(pidFile, String(process.pid), 'utf-8');
 
@@ -107,7 +118,7 @@ const startCommand = new Command('start')
       console.log(chalk.dim('Press Ctrl+C to stop.'));
 
       const { SyncEngine } = await import('../sync/index.js');
-      const engine = new SyncEngine(config, vaultKey);
+      const engine = new SyncEngine(config, vaultKey, authToken);
       await engine.start();
 
       // Handle graceful shutdown
