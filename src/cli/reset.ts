@@ -37,13 +37,7 @@ export const resetCommand = new Command('reset')
       console.log(chalk.bold.red('ContextMate Reset'));
       console.log('');
       console.log('This will:');
-
-      if (config.adapters.claude.enabled) {
-        console.log(`  - Remove Claude Code symlinks`);
-      }
-      if (config.adapters.openclaw.enabled) {
-        console.log(`  - Remove OpenClaw symlinks`);
-      }
+      console.log(`  - Remove all adapter symlinks (Claude Code, OpenClaw)`);
 
       // Show userId if registered
       let userId: string | null = null;
@@ -73,33 +67,29 @@ export const resetCommand = new Command('reset')
 
       console.log('');
 
-      // 1. Remove adapter symlinks (restore originals from backups)
+      // 1. Remove adapter symlinks (always attempt, regardless of enabled flag)
       const adapterOpts = {
         vaultPath: config.vault.path,
         backupsPath: getBackupsPath(),
         scanPaths: config.adapters.claude.scanPaths,
       };
 
-      if (config.adapters.claude.enabled) {
-        try {
-          console.log(chalk.dim('Removing Claude Code symlinks...'));
-          const adapter = getAdapter('claude', adapterOpts);
-          await adapter.removeSymlinks(config.adapters.claude.claudeDir);
-          console.log(chalk.green('  Claude Code symlinks removed.'));
-        } catch (err) {
-          console.log(chalk.yellow(`  Warning: Could not remove Claude symlinks (${err instanceof Error ? err.message : String(err)})`));
-        }
+      try {
+        console.log(chalk.dim('Removing Claude Code symlinks...'));
+        const adapter = getAdapter('claude', adapterOpts);
+        await adapter.removeSymlinks(config.adapters.claude.claudeDir);
+        console.log(chalk.green('  Claude Code symlinks removed.'));
+      } catch (err) {
+        console.log(chalk.yellow(`  Warning: Could not remove Claude symlinks (${err instanceof Error ? err.message : String(err)})`));
       }
 
-      if (config.adapters.openclaw.enabled) {
-        try {
-          console.log(chalk.dim('Removing OpenClaw symlinks...'));
-          const adapter = getAdapter('openclaw', adapterOpts);
-          await adapter.removeSymlinks(config.adapters.openclaw.workspacePath);
-          console.log(chalk.green('  OpenClaw symlinks removed.'));
-        } catch (err) {
-          console.log(chalk.yellow(`  Warning: Could not remove OpenClaw symlinks (${err instanceof Error ? err.message : String(err)})`));
-        }
+      try {
+        console.log(chalk.dim('Removing OpenClaw symlinks...'));
+        const adapter = getAdapter('openclaw', adapterOpts);
+        await adapter.removeSymlinks(config.adapters.openclaw.workspacePath);
+        console.log(chalk.green('  OpenClaw symlinks removed.'));
+      } catch (err) {
+        console.log(chalk.yellow(`  Warning: Could not remove OpenClaw symlinks (${err instanceof Error ? err.message : String(err)})`));
       }
 
       // 2. Delete the entire ~/.contextmate directory

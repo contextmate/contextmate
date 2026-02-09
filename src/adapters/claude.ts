@@ -212,7 +212,12 @@ export class ClaudeCodeAdapter extends BaseAdapter {
     for (const name of names) {
       if (!name.endsWith('.md')) continue;
       const filePath = join(rulesDir, name);
-      const s = await stat(filePath);
+      let s;
+      try {
+        s = await stat(filePath);
+      } catch {
+        continue; // Broken symlink or inaccessible file
+      }
       if (!s.isFile()) continue;
 
       const vaultRelative = join('claude', 'rules', name);
@@ -245,7 +250,12 @@ export class ClaudeCodeAdapter extends BaseAdapter {
       for (const fileName of memoryFiles) {
         if (!fileName.endsWith('.md')) continue;
         const filePath = join(memoryDir, fileName);
-        const s = await stat(filePath);
+        let s;
+        try {
+          s = await stat(filePath);
+        } catch {
+          continue; // Broken symlink or inaccessible file
+        }
         if (!s.isFile()) continue;
 
         const vaultRelative = join('claude', 'projects', projectName, 'memory', fileName);
