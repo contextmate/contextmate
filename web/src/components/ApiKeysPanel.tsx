@@ -92,7 +92,7 @@ export function ApiKeysPanel() {
       await navigator.clipboard.writeText(revealedKey);
       setCopied(true);
     } catch {
-      // Fallback: select text for manual copy
+      window.prompt('Copy this key manually:', revealedKey);
     }
   }, [revealedKey]);
 

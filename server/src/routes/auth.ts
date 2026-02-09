@@ -129,7 +129,12 @@ authRoutes.post('/login', async (c) => {
 // Register device (auth required)
 authRoutes.post('/devices', authMiddleware, async (c) => {
   const auth = getAuth(c);
-  const body = await c.req.json();
+  let body: any;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: 'Invalid JSON body' }, 400);
+  }
   const { name, publicKey } = body;
 
   if (!name) {

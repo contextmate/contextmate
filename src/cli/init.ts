@@ -75,7 +75,7 @@ function printSuccess(userId: string, serverUrl: string) {
 
 async function createNewAccount() {
   const passphrase = await ask(chalk.bold('Choose a passphrase: '));
-  if (!passphrase) {
+  if (!passphrase || !passphrase.trim()) {
     console.error(chalk.red('Error: Passphrase cannot be empty.'));
     process.exit(1);
   }
@@ -153,7 +153,7 @@ async function loginExistingAccount() {
   }
 
   const passphrase = await ask(chalk.bold('Passphrase: '));
-  if (!passphrase) {
+  if (!passphrase || !passphrase.trim()) {
     console.error(chalk.red('Error: Passphrase cannot be empty.'));
     process.exit(1);
   }

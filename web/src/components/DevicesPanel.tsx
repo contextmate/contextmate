@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { Fragment, useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { encryptData, decryptData, bytesToHex, hexToBytes } from '../crypto/browser-crypto.ts';
 import type { Device } from '../api/client.ts';
@@ -250,8 +250,8 @@ export function DevicesPanel() {
           </thead>
           <tbody>
             {devices.map((device) => (
-              <>
-                <tr key={device.id}>
+              <Fragment key={device.id}>
+                <tr>
                   <td>
                     <button
                       className="btn btn-secondary"
@@ -281,7 +281,7 @@ export function DevicesPanel() {
                   </td>
                 </tr>
                 {expandedDeviceId === device.id && (
-                  <tr key={`${device.id}-settings`}>
+                  <tr>
                     <td colSpan={3}>
                       <div className="panel-section">
                         {settingsLoading && <div>Decrypting settings...</div>}
@@ -380,7 +380,7 @@ export function DevicesPanel() {
                     </td>
                   </tr>
                 )}
-              </>
+              </Fragment>
             ))}
           </tbody>
         </table>
