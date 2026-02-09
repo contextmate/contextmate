@@ -40,7 +40,7 @@ function delay(ms: number): Promise<void> {
 describe('FileWatcher', () => {
   it('detects new file creation', async () => {
     watcher.start();
-    await delay(300); // allow chokidar to initialize
+    await waitForEvent(watcher, 'ready'); // allow chokidar to initialize
 
     const eventPromise = waitForEvent(watcher, 'file-added');
     await writeFile(join(tmpDir, 'new-file.md'), 'hello');
@@ -52,7 +52,7 @@ describe('FileWatcher', () => {
     // Create file before starting watcher
     await writeFile(join(tmpDir, 'existing.md'), 'original');
     watcher.start();
-    await delay(300);
+    await waitForEvent(watcher, 'ready');
 
     const eventPromise = waitForEvent(watcher, 'file-changed');
     await writeFile(join(tmpDir, 'existing.md'), 'modified');
@@ -64,7 +64,7 @@ describe('FileWatcher', () => {
     // Create file before starting watcher
     await writeFile(join(tmpDir, 'to-delete.md'), 'content');
     watcher.start();
-    await delay(300);
+    await waitForEvent(watcher, 'ready');
 
     const eventPromise = waitForEvent(watcher, 'file-removed');
     await unlink(join(tmpDir, 'to-delete.md'));
@@ -74,7 +74,7 @@ describe('FileWatcher', () => {
 
   it('does not emit events for ignored files (.DS_Store)', async () => {
     watcher.start();
-    await delay(300);
+    await waitForEvent(watcher, 'ready');
 
     const events: string[] = [];
     watcher.on('file-added', (e: { path: string }) => events.push(e.path));
@@ -92,7 +92,7 @@ describe('FileWatcher', () => {
 
   it('debounce: rapid writes produce fewer events than writes', async () => {
     watcher.start();
-    await delay(300);
+    await waitForEvent(watcher, 'ready');
 
     const events: Array<{ path: string }> = [];
     watcher.on('file-changed', (e: { path: string }) => events.push(e));

@@ -1,0 +1,58 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20, 22]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install root dependencies
+        run: npm install
+
+      - name: Install server dependencies
+        run: npm install
+        working-directory: server
+
+      - name: Install web dependencies
+        run: npm install
+        working-directory: web
+
+      - name: Install www dependencies
+        run: npm install
+        working-directory: www
+
+      - name: Build CLI
+        run: npm run build
+
+      - name: Build server
+        run: npm run build
+        working-directory: server
+
+      - name: Build web
+        run: npm run build
+        working-directory: web
+
+      - name: Build www
+        run: npm run build
+        working-directory: www
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test

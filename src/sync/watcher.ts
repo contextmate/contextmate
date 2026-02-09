@@ -41,6 +41,10 @@ export class FileWatcher extends EventEmitter {
     this.watcher.on('unlink', (filePath: string) => {
       this.queueChange(filePath, 'removed');
     });
+
+    this.watcher.on('ready', () => {
+      this.emit('ready');
+    });
   }
 
   async stop(): Promise<void> {
