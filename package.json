@@ -1,6 +1,6 @@
 {
   "name": "contextmate",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Zero-knowledge encrypted sync for AI agent context",
   "type": "module",
   "bin": {
@@ -26,7 +26,7 @@
   "homepage": "https://contextmate.dev",
   "author": "Alex Furmansky",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && chmod +x dist/src/bin/contextmate.js",
     "dev": "tsx watch src/bin/contextmate.ts",
     "test": "vitest run",
     "test:watch": "vitest",
