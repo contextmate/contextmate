@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ContextMate installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/<user>/contextmate/main/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/contextmate/contextmate/main/install.sh | bash
 
 BOLD='\033[1m'
 GREEN='\033[0;32m'
@@ -42,18 +42,11 @@ info "Installing ContextMate..."
 npm install -g contextmate 2>&1 | tail -1
 ok "ContextMate installed"
 
-# Initialize
-echo ""
-info "Initializing vault..."
-echo -e "${DIM}You'll be prompted to create an encryption passphrase.${RESET}"
-echo ""
-contextmate init
-
 echo ""
 echo -e "${GREEN}${BOLD}ContextMate is ready!${RESET}"
 echo ""
-echo -e "  Next steps:"
-echo -e "  ${DIM}1.${RESET} Connect an agent:  ${BOLD}contextmate adapter claude init${RESET}"
-echo -e "  ${DIM}2.${RESET} Start syncing:     ${BOLD}contextmate daemon start${RESET}"
-echo -e "  ${DIM}3.${RESET} Check status:      ${BOLD}contextmate status${RESET}"
+echo -e "  Get started:"
+echo -e "  ${DIM}1.${RESET} Initialize vault:  ${BOLD}contextmate init${RESET}"
+echo -e "  ${DIM}2.${RESET} Connect an agent:  ${BOLD}contextmate adapter claude init${RESET}"
+echo -e "  ${DIM}3.${RESET} Start syncing:     ${BOLD}contextmate daemon start${RESET}"
 echo ""

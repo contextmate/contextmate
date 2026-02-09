@@ -1,18 +1,37 @@
 {
   "name": "contextmate",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Zero-knowledge encrypted sync for AI agent context",
   "type": "module",
   "bin": {
-    "contextmate": "./dist/bin/contextmate.js"
+    "contextmate": "./dist/src/bin/contextmate.js"
   },
+  "files": [
+    "dist/"
+  ],
+  "keywords": [
+    "ai",
+    "agents",
+    "sync",
+    "encryption",
+    "zero-knowledge",
+    "mcp",
+    "cli",
+    "context"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/contextmate/contextmate"
+  },
+  "homepage": "https://contextmate.dev",
+  "author": "Alex Furmansky",
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/bin/contextmate.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "tsc --noEmit",
-    "start": "node dist/bin/contextmate.js"
+    "start": "node dist/src/bin/contextmate.js"
   },
   "engines": {
     "node": ">=20.0.0"
