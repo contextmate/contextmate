@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir, symlink, readlink, stat, lstat, copyFile, unlink, access, rename } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, symlink, readlink, stat, lstat, copyFile, unlink, access, rename, rm } from 'node:fs/promises';
 import { join, dirname, relative } from 'node:path';
 
 export interface AdapterOptions {
@@ -47,6 +47,10 @@ export abstract class BaseAdapter {
       const linkStat = await lstat(linkPath);
       if (linkStat.isSymbolicLink()) {
         await unlink(linkPath);
+      } else if (linkStat.isDirectory()) {
+        // Directory exists — back it up then remove
+        await this.backupFile(linkPath, this.name).catch(() => {});
+        await rm(linkPath, { recursive: true });
       } else {
         // Regular file exists — back it up first
         await this.backupFile(linkPath, this.name);
