@@ -104,7 +104,6 @@ apiKeyCommand
       }
 
       const keys = await loadApiKeys(config.data.path);
-      const keyValue = `cs_${randomBytes(24).toString('hex')}`;
 
       const newKey: ApiKeyInfo = {
         id: randomBytes(8).toString('hex'),
@@ -121,12 +120,11 @@ apiKeyCommand
       console.log('');
       console.log(chalk.green('API key created:'));
       console.log(`  Name:        ${newKey.name}`);
+      console.log(`  ID:          ${chalk.bold(newKey.id)}`);
       console.log(`  Scope:       ${newKey.scope}`);
       console.log(`  Permissions: ${newKey.permissions}`);
       console.log('');
-      console.log(chalk.bold(`  Key: ${keyValue}`));
-      console.log('');
-      console.log(chalk.yellow('  Warning: This key will only be shown once.'));
+      console.log(`  Use with: ${chalk.cyan(`contextmate mcp serve --api-key ${newKey.id}`)}`);
       console.log('');
     } catch (err) {
       console.error(chalk.red(`Error: ${err instanceof Error ? err.message : String(err)}`));

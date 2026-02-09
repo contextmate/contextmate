@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import * as readline from 'node:readline/promises';
+import { Writable } from 'node:stream';
 import { stdin, stdout } from 'node:process';
 import { readFile, writeFile, unlink, access } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -28,9 +29,12 @@ function isPidRunning(pid: number): boolean {
 }
 
 async function readPassphrase(prompt: string): Promise<string> {
-  const rl = readline.createInterface({ input: stdin, output: stdout });
-  const answer = await rl.question(prompt);
+  stdout.write(prompt);
+  const muted = new Writable({ write(_chunk, _enc, cb) { cb(); } });
+  const rl = readline.createInterface({ input: stdin, output: muted, terminal: true });
+  const answer = await rl.question('');
   rl.close();
+  stdout.write('\n');
   return answer;
 }
 

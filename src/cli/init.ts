@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import * as readline from 'node:readline/promises';
+import { Writable } from 'node:stream';
 import { stdin, stdout } from 'node:process';
 import { access, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -26,6 +27,16 @@ async function ask(prompt: string): Promise<string> {
   const rl = readline.createInterface({ input: stdin, output: stdout });
   const answer = await rl.question(prompt);
   rl.close();
+  return answer;
+}
+
+async function askSecret(prompt: string): Promise<string> {
+  stdout.write(prompt);
+  const muted = new Writable({ write(_chunk, _enc, cb) { cb(); } });
+  const rl = readline.createInterface({ input: stdin, output: muted, terminal: true });
+  const answer = await rl.question('');
+  rl.close();
+  stdout.write('\n');
   return answer;
 }
 
@@ -74,13 +85,13 @@ function printSuccess(userId: string, serverUrl: string) {
 }
 
 async function createNewAccount() {
-  const passphrase = await ask(chalk.bold('Choose a passphrase: '));
+  const passphrase = await askSecret(chalk.bold('Choose a passphrase: '));
   if (!passphrase || !passphrase.trim()) {
     console.error(chalk.red('Error: Passphrase cannot be empty.'));
     process.exit(1);
   }
 
-  const confirmation = await ask(chalk.bold('Confirm passphrase: '));
+  const confirmation = await askSecret(chalk.bold('Confirm passphrase: '));
   if (passphrase !== confirmation) {
     console.error(chalk.red('Error: Passphrases do not match.'));
     process.exit(1);
@@ -152,7 +163,7 @@ async function loginExistingAccount() {
     process.exit(1);
   }
 
-  const passphrase = await ask(chalk.bold('Passphrase: '));
+  const passphrase = await askSecret(chalk.bold('Passphrase: '));
   if (!passphrase || !passphrase.trim()) {
     console.error(chalk.red('Error: Passphrase cannot be empty.'));
     process.exit(1);

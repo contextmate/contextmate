@@ -45,5 +45,9 @@ www/dist/
 web/dist/
 server/dist/
 
+# Internal audit docs
+docs/usability-audit.md
+docs/web-dashboard-audit.md
+
 # Screenshots
 *.png

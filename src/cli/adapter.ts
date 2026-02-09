@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import * as readline from 'node:readline/promises';
+import { Writable } from 'node:stream';
 import { stdin, stdout } from 'node:process';
 import { access, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -23,6 +24,16 @@ async function ask(prompt: string): Promise<string> {
   const rl = readline.createInterface({ input: stdin, output: stdout });
   const answer = await rl.question(prompt);
   rl.close();
+  return answer;
+}
+
+async function askSecret(prompt: string): Promise<string> {
+  stdout.write(prompt);
+  const muted = new Writable({ write(_chunk, _enc, cb) { cb(); } });
+  const rl = readline.createInterface({ input: stdin, output: muted, terminal: true });
+  const answer = await rl.question('');
+  rl.close();
+  stdout.write('\n');
   return answer;
 }
 
@@ -65,7 +76,7 @@ async function pushDeviceSettings(config: ContextMateConfig): Promise<void> {
   // Ask for passphrase to encrypt settings
   console.log('');
   console.log(chalk.dim('Sync settings to the server so you can manage them from the web dashboard.'));
-  const passphrase = await ask(chalk.bold('Passphrase (or press Enter to skip): '));
+  const passphrase = await askSecret(chalk.bold('Passphrase (or press Enter to skip): '));
   if (!passphrase) {
     console.log(chalk.dim('  Skipped. You can sync settings later from the web dashboard.'));
     return;
