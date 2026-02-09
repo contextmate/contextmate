@@ -26,31 +26,42 @@ ContextMate syncs them everywhere:
 
 ## Quick Start
 
-**1. Install and create your encrypted vault**
+**One command does everything:**
 
 ```bash
-contextmate init
+contextmate setup
 ```
 
-**2. Connect your agents**
+This guided setup will:
+1. Create your account (or log into an existing one)
+2. Auto-detect Claude Code and OpenClaw
+3. Import your skills, rules, and memories
+4. Ask which directories to scan for project skills
+5. Sync all files to the cloud
+6. Open the web dashboard at [app.contextmate.dev](https://app.contextmate.dev)
+7. Start the sync daemon
+
+That's it. Your AI context is now encrypted, synced, and accessible from any device.
+
+### Web Dashboard
+
+Manage your vault, devices, and API keys from [app.contextmate.dev](https://app.contextmate.dev). View synced files, edit per-device scan paths, and create API keys -- all from the browser.
+
+### Multi-device
+
+On a second machine, run the same command and choose "Log into existing account":
 
 ```bash
-contextmate adapter claude init
-contextmate adapter openclaw init
+contextmate setup
+# Choose: 2. Log into existing account
+# Enter your User ID and passphrase
 ```
-
-**3. Start syncing**
-
-```bash
-contextmate daemon start
-```
-
-That's it. File changes are detected, encrypted locally, and pushed to the cloud. Other devices pull and decrypt in real time via WebSocket.
 
 ## CLI Reference
 
 | Command | Description |
 |---------|-------------|
+| **`contextmate setup`** | **Complete guided setup -- account, adapters, sync, and dashboard** |
 | `contextmate init` | Create a new account or log into an existing one |
 | `contextmate status` | Show connection status, account info, and sync state |
 | `contextmate adapter claude init` | Import Claude Code files and create symlinks |
@@ -68,27 +79,7 @@ That's it. File changes are detected, encrypted locally, and pushed to the cloud
 | `contextmate mcp api-key` | Manage MCP API keys |
 | `contextmate reset` | Remove all ContextMate data and symlinks from this machine |
 
-### Multi-device login
-
-To set up ContextMate on a second machine, install and choose "Log into existing account" during init. You'll need your User ID and passphrase.
-
-```bash
-contextmate init
-# Choose: Log into existing account
-# Enter your User ID and passphrase
-```
-
-### Scanning project-specific skills
-
-To import skills from project directories (e.g. `.claude/skills/` inside your repos), add `scanPaths` to your config:
-
-```toml
-# ~/.contextmate/config.toml
-[adapters.claude]
-scanPaths = ["/Users/you/Developer"]
-```
-
-Then re-run `contextmate adapter claude init` to pick them up.
+Most users only need `contextmate setup`. The other commands are available for advanced usage and troubleshooting.
 
 ## Architecture
 
@@ -156,7 +147,7 @@ npm test
 ```
 src/                  # CLI client
   bin/                #   Entry point
-  cli/                #   Commands (init, status, adapter, daemon, mcp, files, log, reset)
+  cli/                #   Commands (setup, init, status, adapter, daemon, mcp, files, log, reset)
   crypto/             #   Encryption (AES-256-GCM, Argon2id, HKDF, BLAKE3)
   sync/               #   Sync engine (watcher, state, WebSocket)
   adapters/           #   Agent adapters (Claude Code, OpenClaw)

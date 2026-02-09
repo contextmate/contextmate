@@ -5,10 +5,10 @@ import InstallBlock from './InstallBlock.astro';
 <section id="get-started" class="py-24 px-6 bg-brand-deep/50">
   <div class="max-w-4xl mx-auto">
     <h2 class="font-mono text-3xl md:text-4xl font-bold text-center mb-4">
-      Up and running in 60 seconds
+      One command. Fully set up.
     </h2>
     <p class="text-brand-muted text-center mb-16 max-w-2xl mx-auto">
-      Three commands. That's all it takes to sync your AI context across every device and every agent.
+      Install ContextMate, then run setup. It handles everything -- account, adapters, sync, and dashboard.
     </p>
 
     <div class="space-y-12">
@@ -18,11 +18,11 @@ import InstallBlock from './InstallBlock.astro';
           1
         </div>
         <div class="flex-1 min-w-0">
-          <h3 class="font-mono font-semibold text-lg mb-2">Install & create your vault</h3>
+          <h3 class="font-mono font-semibold text-lg mb-2">Install</h3>
           <p class="text-brand-muted text-sm mb-4">
-            One command installs ContextMate and walks you through creating an encrypted vault with your passphrase.
+            One-line install via npm or the install script.
           </p>
-          <InstallBlock command="curl -fsSL https://raw.githubusercontent.com/contextmate/contextmate/main/install.sh | bash" />
+          <InstallBlock command="npm install -g contextmate" />
         </div>
       </div>
 
@@ -32,11 +32,11 @@ import InstallBlock from './InstallBlock.astro';
           2
         </div>
         <div class="flex-1 min-w-0">
-          <h3 class="font-mono font-semibold text-lg mb-2">Connect your AI agents</h3>
+          <h3 class="font-mono font-semibold text-lg mb-2">Setup</h3>
           <p class="text-brand-muted text-sm mb-4">
-            Adapters detect your agent workspace, import existing files, and create symlinks. Nothing moves, nothing breaks.
+            Guided setup creates your account, detects Claude Code and OpenClaw, imports your skills and memories, syncs everything to the cloud, opens the web dashboard, and starts the sync daemon.
           </p>
-          <InstallBlock command="contextmate adapter claude init" />
+          <InstallBlock command="contextmate setup" />
         </div>
       </div>
 
@@ -46,11 +46,11 @@ import InstallBlock from './InstallBlock.astro';
           3
         </div>
         <div class="flex-1 min-w-0">
-          <h3 class="font-mono font-semibold text-lg mb-2">Start syncing</h3>
+          <h3 class="font-mono font-semibold text-lg mb-2">Manage from the web</h3>
           <p class="text-brand-muted text-sm mb-4">
-            The daemon watches your vault for changes and syncs them across all your devices in real-time.
+            View your files, manage devices, edit scan paths, and create API keys from the web dashboard. No CLI needed.
           </p>
-          <InstallBlock command="contextmate daemon start" />
+          <InstallBlock command="app.contextmate.dev" />
         </div>
       </div>
     </div>
@@ -65,6 +65,17 @@ import InstallBlock from './InstallBlock.astro';
       </p>
 
       <div class="grid gap-px bg-brand-border/30 rounded-xl overflow-hidden border border-brand-border/30">
+        <!-- Setup -->
+        <div class="bg-brand-deep px-6 py-4">
+          <p class="text-xs text-brand-accent uppercase tracking-wider font-mono mb-3">Getting Started</p>
+          <div class="space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+              <code class="font-mono text-sm text-brand-accent font-bold whitespace-nowrap">contextmate setup</code>
+              <span class="text-brand-muted text-sm">Complete guided setup — account, adapters, sync, and dashboard</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Account -->
         <div class="bg-brand-deep px-6 py-4">
           <p class="text-xs text-brand-accent uppercase tracking-wider font-mono mb-3">Account</p>
