@@ -115,6 +115,52 @@ export async function decryptData(
   );
 }
 
+export async function deriveKeyForPath(
+  vaultKeyRaw: Uint8Array,
+  filePath: string
+): Promise<CryptoKey> {
+  const segments = filePath.split('/');
+  const folder = segments[0]!;
+  const rest = segments.slice(1).join('/');
+
+  // Derive folder key: HKDF(vaultKey, 'contextmate-folder-' + folder)
+  const folderKeyRaw = await hkdfDerive(vaultKeyRaw, 'contextmate-folder-' + folder);
+
+  // Derive file key: HKDF(folderKey, 'contextmate-file-' + rest)
+  const fileKeyRaw = await hkdfDerive(folderKeyRaw, 'contextmate-file-' + rest);
+
+  return crypto.subtle.importKey(
+    'raw',
+    toBuffer(fileKeyRaw),
+    { name: 'AES-GCM' },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+async function hkdfDerive(ikm: Uint8Array, info: string): Promise<Uint8Array> {
+  const enc = new TextEncoder();
+  const hkdfKey = await crypto.subtle.importKey(
+    'raw',
+    toBuffer(ikm),
+    'HKDF',
+    false,
+    ['deriveBits']
+  );
+  return new Uint8Array(
+    await crypto.subtle.deriveBits(
+      {
+        name: 'HKDF',
+        hash: 'SHA-256',
+        salt: toBuffer(new Uint8Array(32)),
+        info: toBuffer(enc.encode(info)),
+      },
+      hkdfKey,
+      256
+    )
+  );
+}
+
 export async function hashForAuth(authKeyBytes: Uint8Array): Promise<string> {
   // BLAKE3 hash for server auth (matches CLI)
   return await blake3(authKeyBytes);

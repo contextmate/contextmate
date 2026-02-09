@@ -10,6 +10,7 @@ import { ApiClient } from '../api/client.ts';
 interface AuthState {
   isAuthenticated: boolean;
   vaultKey: CryptoKey | null;
+  vaultKeyRaw: Uint8Array | null;
   authKeyHex: string | null;
   token: string | null;
   userId: string | null;
@@ -29,6 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
     isAuthenticated: false,
     vaultKey: null,
+    vaultKeyRaw: null,
     authKeyHex: null,
     token: null,
     userId: null,
@@ -41,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({
       isAuthenticated: false,
       vaultKey: null,
+      vaultKeyRaw: null,
       authKeyHex: null,
       token: null,
       userId: null,
@@ -59,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ...prev,
         isAuthenticated: false,
         vaultKey: null,
+        vaultKeyRaw: null,
         authKeyHex: null,
         token: null,
         apiClient: null,
@@ -74,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { rawKey } = await deriveKeyFromPassphrase(passphrase, salt);
 
     // Derive vault sub-key for encryption (info must match CLI: 'contextmate-vault-enc')
-    const { key: vaultKey } = await deriveSubKey(rawKey, 'contextmate-vault-enc');
+    const { key: vaultKey, rawKey: vaultKeyRaw } = await deriveSubKey(rawKey, 'contextmate-vault-enc');
 
     // Derive auth sub-key for authentication
     const { rawKey: authRawKey } = await deriveSubKey(rawKey, 'contextmate-auth');
@@ -93,6 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState({
       isAuthenticated: true,
       vaultKey,
+      vaultKeyRaw,
       authKeyHex: authKeyHash,
       token,
       userId: confirmedUserId,

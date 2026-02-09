@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext.tsx';
-import { decryptData, encryptData, bytesToHex } from '../crypto/browser-crypto.ts';
+import { decryptData, encryptData, bytesToHex, deriveKeyForPath } from '../crypto/browser-crypto.ts';
 
 function simpleMarkdownToHtml(md: string): string {
   let html = md
@@ -46,7 +46,7 @@ interface FileViewerProps {
 }
 
 export function FileViewer({ filePath, onDirtyChange }: FileViewerProps) {
-  const { apiClient, vaultKey } = useAuth();
+  const { apiClient, vaultKeyRaw } = useAuth();
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -72,7 +72,7 @@ export function FileViewer({ filePath, onDirtyChange }: FileViewerProps) {
   }, [isDirty]);
 
   useEffect(() => {
-    if (!apiClient || !vaultKey) return;
+    if (!apiClient || !vaultKeyRaw) return;
     let cancelled = false;
 
     async function load() {
@@ -83,7 +83,8 @@ export function FileViewer({ filePath, onDirtyChange }: FileViewerProps) {
 
         const { data, version: fileVersion } = await apiClient!.downloadFile(filePath);
         const encrypted = new Uint8Array(data);
-        const decrypted = await decryptData(encrypted, vaultKey!);
+        const fileKey = await deriveKeyForPath(vaultKeyRaw!, filePath);
+        const decrypted = await decryptData(encrypted, fileKey);
         const text = new TextDecoder().decode(decrypted);
 
         if (!cancelled) {
@@ -102,17 +103,18 @@ export function FileViewer({ filePath, onDirtyChange }: FileViewerProps) {
 
     load();
     return () => { cancelled = true; };
-  }, [filePath, apiClient, vaultKey]);
+  }, [filePath, apiClient, vaultKeyRaw]);
 
   const handleSave = useCallback(async () => {
-    if (!apiClient || !vaultKey) return;
+    if (!apiClient || !vaultKeyRaw) return;
 
     try {
       setSaving(true);
       setError(null);
 
+      const fileKey = await deriveKeyForPath(vaultKeyRaw, filePath);
       const plaintext = new TextEncoder().encode(editContent);
-      const encrypted = await encryptData(plaintext, vaultKey);
+      const encrypted = await encryptData(plaintext, fileKey);
 
       // Compute hash of encrypted data for integrity
       const hashBuffer = await crypto.subtle.digest('SHA-256', encrypted as BufferSource);
@@ -128,7 +130,7 @@ export function FileViewer({ filePath, onDirtyChange }: FileViewerProps) {
     } finally {
       setSaving(false);
     }
-  }, [apiClient, vaultKey, filePath, editContent, version]);
+  }, [apiClient, vaultKeyRaw, filePath, editContent, version]);
 
   if (loading) {
     return (
