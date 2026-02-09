@@ -8,7 +8,6 @@ import { hexToBytes } from '@noble/hashes/utils';
 import { loadConfig, getConfigPath } from '../config.js';
 import { getPidFilePath } from '../utils/paths.js';
 import { deriveMasterKey, deriveVaultKey, decryptString } from '../crypto/index.js';
-import { SyncEngine } from '../sync/index.js';
 
 async function isInitialized(): Promise<boolean> {
   try {
@@ -107,6 +106,7 @@ const startCommand = new Command('start')
       console.log(chalk.green(`Daemon started (PID: ${process.pid})`));
       console.log(chalk.dim('Press Ctrl+C to stop.'));
 
+      const { SyncEngine } = await import('../sync/index.js');
       const engine = new SyncEngine(config, vaultKey);
       await engine.start();
 

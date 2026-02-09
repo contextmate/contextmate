@@ -10,7 +10,7 @@ import { filesCommand } from './files.js';
 export const program = new Command()
   .name('contextmate')
   .description('Zero-knowledge encrypted sync for AI agent context')
-  .version('0.1.0');
+  .version('0.1.6');
 
 program.addCommand(initCommand);
 program.addCommand(statusCommand);

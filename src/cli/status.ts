@@ -3,7 +3,6 @@ import chalk from 'chalk';
 import { access } from 'node:fs/promises';
 import { loadConfig, getConfigDir } from '../config.js';
 import { getSyncDbPath, getPidFilePath } from '../utils/paths.js';
-import { SyncStateDB } from '../sync/index.js';
 
 async function fileExists(path: string): Promise<boolean> {
   try {
@@ -65,6 +64,7 @@ export const statusCommand = new Command('status')
       // Sync state summary
       const dbPath = getSyncDbPath(config);
       if (await fileExists(dbPath)) {
+        const { SyncStateDB } = await import('../sync/index.js');
         const db = new SyncStateDB(dbPath);
         const allFiles = db.getAllFiles();
         const synced = allFiles.filter((f) => f.syncState === 'synced').length;

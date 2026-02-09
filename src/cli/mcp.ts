@@ -5,7 +5,6 @@ import { readFile, writeFile, access, mkdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { loadConfig, getConfigPath } from '../config.js';
 import { getSearchDbPath } from '../utils/paths.js';
-import { startMcpServer } from '../mcp/index.js';
 import type { ApiKeyInfo, ApiPermission } from '../types.js';
 
 async function isInitialized(): Promise<boolean> {
@@ -73,6 +72,7 @@ const serveCommand = new Command('serve')
       process.on('SIGINT', shutdown);
       process.on('SIGTERM', shutdown);
 
+      const { startMcpServer } = await import('../mcp/index.js');
       await startMcpServer(config.vault.path, searchDbPath, scopeOptions);
       console.log('MCP server running on stdio');
     } catch (err) {
