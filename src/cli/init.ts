@@ -4,6 +4,7 @@ import * as readline from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
 import { access, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { hostname } from 'node:os';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import {
   generateSalt,
@@ -26,6 +27,26 @@ async function ask(prompt: string): Promise<string> {
   const answer = await rl.question(prompt);
   rl.close();
   return answer;
+}
+
+async function registerDevice(serverUrl: string, token: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${serverUrl}/api/auth/devices`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ name: hostname() }),
+    });
+    if (res.ok) {
+      const { deviceId } = (await res.json()) as { deviceId: string };
+      return deviceId;
+    }
+  } catch {
+    // Device registration is non-critical
+  }
+  return null;
 }
 
 async function setupDirectories() {
@@ -103,7 +124,8 @@ async function createNewAccount() {
 
     if (res.ok) {
       const { userId, token } = (await res.json()) as { userId: string; token: string };
-      await writeFile(authPath, JSON.stringify({ authHash, userId, token }, null, 2), { mode: 0o600 });
+      const deviceId = await registerDevice(config.server.url, token);
+      await writeFile(authPath, JSON.stringify({ authHash, userId, token, deviceId }, null, 2), { mode: 0o600 });
       printSuccess(userId, config.server.url);
     } else if (res.status === 409) {
       console.error(chalk.red('Error: An account with this passphrase already exists.'));
@@ -184,6 +206,7 @@ async function loginExistingAccount() {
     }
 
     const { token } = (await res.json()) as { userId: string; token: string };
+    const deviceId = await registerDevice(config.server.url, token);
 
     // Save credentials locally
     const encryptedMasterKey = encryptString(bytesToHex(masterKey), vaultKey);
@@ -198,7 +221,7 @@ async function loginExistingAccount() {
     );
     await writeFile(
       join(config.data.path, 'auth.json'),
-      JSON.stringify({ authHash, userId: userId.trim(), token }, null, 2),
+      JSON.stringify({ authHash, userId: userId.trim(), token, deviceId }, null, 2),
       { mode: 0o600 },
     );
 

@@ -25,8 +25,9 @@ export function initDb(dataDir: string): Database.Database {
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id),
       name TEXT NOT NULL,
-      public_key TEXT NOT NULL,
-      last_seen INTEGER NOT NULL
+      public_key TEXT NOT NULL DEFAULT '',
+      last_seen INTEGER NOT NULL,
+      encrypted_settings TEXT
     );
 
     CREATE TABLE IF NOT EXISTS files (
@@ -66,6 +67,13 @@ export function initDb(dataDir: string): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_audit_log_user_ts
       ON audit_log(user_id, timestamp DESC);
   `);
+
+  // Migrations for existing databases
+  try {
+    db.exec('ALTER TABLE devices ADD COLUMN encrypted_settings TEXT');
+  } catch {
+    // Column already exists
+  }
 
   return db;
 }

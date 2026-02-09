@@ -73,8 +73,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Derive master key from passphrase using Argon2id + per-user salt
     const { rawKey } = await deriveKeyFromPassphrase(passphrase, salt);
 
-    // Derive vault sub-key for encryption
-    const { key: vaultKey } = await deriveSubKey(rawKey, 'contextmate-vault');
+    // Derive vault sub-key for encryption (info must match CLI: 'contextmate-vault-enc')
+    const { key: vaultKey } = await deriveSubKey(rawKey, 'contextmate-vault-enc');
 
     // Derive auth sub-key for authentication
     const { rawKey: authRawKey } = await deriveSubKey(rawKey, 'contextmate-auth');

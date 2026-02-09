@@ -132,8 +132,8 @@ authRoutes.post('/devices', authMiddleware, async (c) => {
   const body = await c.req.json();
   const { name, publicKey } = body;
 
-  if (!name || !publicKey) {
-    return c.json({ error: 'name and publicKey are required' }, 400);
+  if (!name) {
+    return c.json({ error: 'name is required' }, 400);
   }
 
   const db = getDb();
@@ -142,7 +142,7 @@ authRoutes.post('/devices', authMiddleware, async (c) => {
 
   db.prepare(
     'INSERT INTO devices (id, user_id, name, public_key, last_seen) VALUES (?, ?, ?, ?, ?)'
-  ).run(deviceId, auth.userId, name, publicKey, now);
+  ).run(deviceId, auth.userId, name, publicKey || '', now);
 
   return c.json({ deviceId }, 201);
 });
@@ -153,7 +153,7 @@ authRoutes.get('/devices', authMiddleware, async (c) => {
   const db = getDb();
 
   const devices = db.prepare(
-    'SELECT id, name, public_key as publicKey, last_seen as lastSeen FROM devices WHERE user_id = ?'
+    'SELECT id, name, public_key as publicKey, last_seen as lastSeen, encrypted_settings as encryptedSettings FROM devices WHERE user_id = ?'
   ).all(auth.userId);
 
   return c.json({ devices });
@@ -168,6 +168,52 @@ authRoutes.delete('/devices/:id', authMiddleware, async (c) => {
   const result = db.prepare(
     'DELETE FROM devices WHERE id = ? AND user_id = ?'
   ).run(deviceId, auth.userId);
+
+  if (result.changes === 0) {
+    return c.json({ error: 'Device not found' }, 404);
+  }
+
+  return c.json({ ok: true });
+});
+
+// Get device settings (auth required)
+authRoutes.get('/devices/:id/settings', authMiddleware, async (c) => {
+  const auth = getAuth(c);
+  const deviceId = c.req.param('id');
+  const db = getDb();
+
+  const device = db.prepare(
+    'SELECT encrypted_settings as encryptedSettings FROM devices WHERE id = ? AND user_id = ?'
+  ).get(deviceId, auth.userId) as { encryptedSettings: string | null } | undefined;
+
+  if (!device) {
+    return c.json({ error: 'Device not found' }, 404);
+  }
+
+  return c.json({ encryptedSettings: device.encryptedSettings });
+});
+
+// Update device settings (auth required)
+authRoutes.put('/devices/:id/settings', authMiddleware, async (c) => {
+  const auth = getAuth(c);
+  const deviceId = c.req.param('id');
+
+  let body: any;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: 'Invalid JSON body' }, 400);
+  }
+
+  const { encryptedSettings } = body;
+  if (typeof encryptedSettings !== 'string') {
+    return c.json({ error: 'encryptedSettings is required' }, 400);
+  }
+
+  const db = getDb();
+  const result = db.prepare(
+    'UPDATE devices SET encrypted_settings = ? WHERE id = ? AND user_id = ?'
+  ).run(encryptedSettings, deviceId, auth.userId);
 
   if (result.changes === 0) {
     return c.json({ error: 'Device not found' }, 404);

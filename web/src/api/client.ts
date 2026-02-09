@@ -24,6 +24,29 @@ export interface AuditQueryParams {
   offset?: number;
 }
 
+export interface Device {
+  id: string;
+  name: string;
+  lastSeen: number;
+  encryptedSettings: string | null;
+}
+
+export interface ApiKey {
+  id: string;
+  name: string;
+  scope: string;
+  permissions: string;
+  createdAt: number;
+  revokedAt: number | null;
+}
+
+export interface CreateApiKeyResponse {
+  id: string;
+  key: string;
+  scope: string;
+  permissions: string;
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -190,6 +213,100 @@ export class ApiClient {
     if (!res.ok) {
       this.checkUnauthorized(res.status);
       throw new ApiError(`Failed to delete file (${res.status})`, res.status);
+    }
+  }
+
+  async listDevices(): Promise<Device[]> {
+    const res = await fetch(`${this.baseUrl}/api/auth/devices`, {
+      headers: this.headers(),
+    });
+    if (!res.ok) {
+      this.checkUnauthorized(res.status);
+      throw new ApiError(`Failed to list devices (${res.status})`, res.status);
+    }
+    const data = await res.json();
+    return data.devices;
+  }
+
+  async deleteDevice(id: string): Promise<void> {
+    const encoded = encodeURIComponent(id);
+    const res = await fetch(`${this.baseUrl}/api/auth/devices/${encoded}`, {
+      method: 'DELETE',
+      headers: this.headers(),
+    });
+    if (!res.ok) {
+      this.checkUnauthorized(res.status);
+      throw new ApiError(`Failed to delete device (${res.status})`, res.status);
+    }
+  }
+
+  async getDeviceSettings(id: string): Promise<{ encryptedSettings: string | null }> {
+    const encoded = encodeURIComponent(id);
+    const res = await fetch(`${this.baseUrl}/api/auth/devices/${encoded}/settings`, {
+      headers: this.headers(),
+    });
+    if (!res.ok) {
+      this.checkUnauthorized(res.status);
+      throw new ApiError(`Failed to get device settings (${res.status})`, res.status);
+    }
+    const data = await res.json();
+    return data;
+  }
+
+  async updateDeviceSettings(id: string, encryptedSettings: string): Promise<void> {
+    const encoded = encodeURIComponent(id);
+    const res = await fetch(`${this.baseUrl}/api/auth/devices/${encoded}/settings`, {
+      method: 'PUT',
+      headers: {
+        ...this.headers(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ encryptedSettings }),
+    });
+    if (!res.ok) {
+      this.checkUnauthorized(res.status);
+      throw new ApiError(`Failed to update device settings (${res.status})`, res.status);
+    }
+  }
+
+  async listApiKeys(): Promise<ApiKey[]> {
+    const res = await fetch(`${this.baseUrl}/api/keys`, {
+      headers: this.headers(),
+    });
+    if (!res.ok) {
+      this.checkUnauthorized(res.status);
+      throw new ApiError(`Failed to list API keys (${res.status})`, res.status);
+    }
+    const data = await res.json();
+    return data.keys;
+  }
+
+  async createApiKey(name: string, scope: string, permissions: string): Promise<CreateApiKeyResponse> {
+    const res = await fetch(`${this.baseUrl}/api/keys`, {
+      method: 'POST',
+      headers: {
+        ...this.headers(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name, scope, permissions }),
+    });
+    if (!res.ok) {
+      this.checkUnauthorized(res.status);
+      throw new ApiError(`Failed to create API key (${res.status})`, res.status);
+    }
+    const data = await res.json();
+    return data;
+  }
+
+  async revokeApiKey(id: string): Promise<void> {
+    const encoded = encodeURIComponent(id);
+    const res = await fetch(`${this.baseUrl}/api/keys/${encoded}`, {
+      method: 'DELETE',
+      headers: this.headers(),
+    });
+    if (!res.ok) {
+      this.checkUnauthorized(res.status);
+      throw new ApiError(`Failed to revoke API key (${res.status})`, res.status);
     }
   }
 }

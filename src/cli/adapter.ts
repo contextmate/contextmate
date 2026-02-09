@@ -2,10 +2,13 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import * as readline from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
+import { access, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { loadConfig, saveConfig, getConfigPath, type ContextMateConfig } from '../config.js';
 import { getAdapter } from '../adapters/index.js';
 import { getBackupsPath } from '../utils/paths.js';
-import { access } from 'node:fs/promises';
+import { deriveMasterKey, deriveVaultKey, encryptString } from '../crypto/index.js';
 
 async function isInitialized(): Promise<boolean> {
   try {
@@ -46,6 +49,72 @@ async function promptScanPaths(config: ContextMateConfig): Promise<boolean> {
   console.log(chalk.green(`  Scan path added: ${resolved}`));
   console.log('');
   return true;
+}
+
+async function pushDeviceSettings(config: ContextMateConfig): Promise<void> {
+  // Load auth info
+  let auth: { token?: string; deviceId?: string };
+  try {
+    auth = JSON.parse(await readFile(join(config.data.path, 'auth.json'), 'utf-8'));
+  } catch {
+    return; // No auth info available
+  }
+
+  if (!auth.token || !auth.deviceId) return;
+
+  // Ask for passphrase to encrypt settings
+  console.log('');
+  console.log(chalk.dim('Sync settings to the server so you can manage them from the web dashboard.'));
+  const passphrase = await ask(chalk.bold('Passphrase (or press Enter to skip): '));
+  if (!passphrase) {
+    console.log(chalk.dim('  Skipped. You can sync settings later from the web dashboard.'));
+    return;
+  }
+
+  // Load salt and derive vault key
+  let credentials: { salt: string };
+  try {
+    credentials = JSON.parse(await readFile(join(config.data.path, 'credentials.json'), 'utf-8'));
+  } catch {
+    console.log(chalk.yellow('  Could not load credentials. Skipping settings sync.'));
+    return;
+  }
+
+  try {
+    const salt = hexToBytes(credentials.salt);
+    const masterKey = await deriveMasterKey(passphrase, salt);
+    const vaultKey = deriveVaultKey(masterKey);
+
+    // Build settings payload
+    const settings = {
+      scanPaths: config.adapters.claude.scanPaths,
+      adapters: {
+        claude: config.adapters.claude.enabled,
+        openclaw: config.adapters.openclaw.enabled,
+      },
+    };
+
+    const encrypted = encryptString(JSON.stringify(settings), vaultKey);
+    const encryptedHex = bytesToHex(encrypted);
+
+    // Push to server
+    const res = await fetch(`${config.server.url}/api/auth/devices/${auth.deviceId}/settings`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${auth.token}`,
+      },
+      body: JSON.stringify({ encryptedSettings: encryptedHex }),
+    });
+
+    if (res.ok) {
+      console.log(chalk.green('  Settings synced to server.'));
+    } else {
+      console.log(chalk.yellow(`  Server returned ${res.status}. Settings saved locally only.`));
+    }
+  } catch (err) {
+    console.log(chalk.yellow(`  Could not sync settings: ${err instanceof Error ? err.message : String(err)}`));
+  }
 }
 
 function countByPrefix(items: string[], prefix: string): number {
@@ -151,6 +220,9 @@ function createAdapterSubcommands(agentName: string, displayName: string): Comma
           config.adapters.claude.claudeDir = workspacePath;
         }
         await saveConfig(config);
+
+        // Push settings to server for web dashboard management
+        await pushDeviceSettings(config);
 
         console.log('');
         console.log(chalk.green(`${displayName} adapter initialized successfully.`));

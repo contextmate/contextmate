@@ -33,6 +33,9 @@ export class ClaudeCodeAdapter extends BaseAdapter {
     // 1. Import skills: ~/.agents/skills/*/SKILL.md -> vault/skills/*/SKILL.md
     await this.importSkills(skillsPath, result);
 
+    // 1b. Import skills from ~/.claude/skills/ (Claude Code's native global skills location)
+    await this.importSkills(join(claudeDir, 'skills'), result);
+
     // 2. Scan configured directories for project-specific skills
     await this.importProjectSkills(result);
 
@@ -57,8 +60,9 @@ export class ClaudeCodeAdapter extends BaseAdapter {
 
     const skillsPath = join(homedir(), '.agents', 'skills');
 
-    // 1. Skills: link vault/skills/* into ~/.agents/skills/
+    // 1. Skills: link vault/skills/* into ~/.agents/skills/ and ~/.claude/skills/
     await this.symlinkSkills(skillsPath, result);
+    await this.symlinkSkills(join(claudeDir, 'skills'), result);
 
     // 2. Rules: link vault/claude/rules/*.md back to ~/.claude/rules/
     await this.symlinkFiles(
@@ -90,8 +94,9 @@ export class ClaudeCodeAdapter extends BaseAdapter {
 
     const skillsPath = join(homedir(), '.agents', 'skills');
 
-    // 1. Verify skill symlinks
+    // 1. Verify skill symlinks in ~/.agents/skills/ and ~/.claude/skills/
     await this.verifySkillSymlinks(skillsPath, valid, broken);
+    await this.verifySkillSymlinks(join(claudeDir, 'skills'), valid, broken);
 
     // 2. Verify rule symlinks
     await this.verifyFileSymlinks(
@@ -130,8 +135,9 @@ export class ClaudeCodeAdapter extends BaseAdapter {
   async removeSymlinks(claudeDir: string): Promise<void> {
     const skillsPath = join(homedir(), '.agents', 'skills');
 
-    // 1. Remove skill symlinks
+    // 1. Remove skill symlinks from ~/.agents/skills/ and ~/.claude/skills/
     await this.removeSkillSymlinks(skillsPath);
+    await this.removeSkillSymlinks(join(claudeDir, 'skills'));
 
     // 2. Remove rule symlinks
     await this.removeFileSymlinks(
