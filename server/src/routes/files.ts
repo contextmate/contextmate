@@ -64,7 +64,7 @@ fileRoutes.get('/changes', async (c) => {
 // Upload file
 fileRoutes.put('/*', async (c) => {
   const auth = getAuth(c);
-  const filePath = c.req.path.replace(/^\/api\/files\//, '');
+  const filePath = decodeURIComponent(c.req.path.replace(/^\/api\/files\//, ''));
 
   if (!filePath) {
     return c.json({ error: 'File path is required' }, 400);
@@ -162,7 +162,7 @@ fileRoutes.put('/*', async (c) => {
 // Download file
 fileRoutes.get('/*', async (c) => {
   const auth = getAuth(c);
-  const filePath = c.req.path.replace(/^\/api\/files\//, '');
+  const filePath = decodeURIComponent(c.req.path.replace(/^\/api\/files\//, ''));
 
   if (!filePath) {
     return c.json({ error: 'File path is required' }, 400);
@@ -205,7 +205,7 @@ fileRoutes.get('/*', async (c) => {
 // Delete file
 fileRoutes.delete('/*', async (c) => {
   const auth = getAuth(c);
-  const filePath = c.req.path.replace(/^\/api\/files\//, '');
+  const filePath = decodeURIComponent(c.req.path.replace(/^\/api\/files\//, ''));
 
   if (!filePath) {
     return c.json({ error: 'File path is required' }, 400);
