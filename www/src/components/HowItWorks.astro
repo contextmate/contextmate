@@ -54,5 +54,108 @@ import InstallBlock from './InstallBlock.astro';
         </div>
       </div>
     </div>
+
+    <!-- Full CLI Reference -->
+    <div class="mt-24">
+      <h3 class="font-mono text-2xl font-bold text-center mb-4">
+        Full CLI reference
+      </h3>
+      <p class="text-brand-muted text-center mb-12 max-w-2xl mx-auto">
+        Every command at a glance.
+      </p>
+
+      <div class="grid gap-px bg-brand-border/30 rounded-xl overflow-hidden border border-brand-border/30">
+        <!-- Account -->
+        <div class="bg-brand-deep px-6 py-4">
+          <p class="text-xs text-brand-accent uppercase tracking-wider font-mono mb-3">Account</p>
+          <div class="space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+              <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate init</code>
+              <span class="text-brand-muted text-sm">Create a new account or log into an existing one</span>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+              <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate status</code>
+              <span class="text-brand-muted text-sm">Show connection status, account info, and sync state</span>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+              <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate reset</code>
+              <span class="text-brand-muted text-sm">Remove all data and symlinks from this machine</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Adapters -->
+        <div class="bg-brand-deep px-6 py-4">
+          <p class="text-xs text-brand-accent uppercase tracking-wider font-mono mb-3">Adapters</p>
+          <div class="space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+              <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate adapter claude init</code>
+              <span class="text-brand-muted text-sm">Import Claude Code files and create symlinks</span>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+              <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate adapter claude status</code>
+              <span class="text-brand-muted text-sm">Check symlink health</span>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+              <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate adapter claude remove</code>
+              <span class="text-brand-muted text-sm">Remove symlinks and restore originals</span>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+              <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate adapter openclaw init</code>
+              <span class="text-brand-muted text-sm">Import OpenClaw files and create symlinks</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sync -->
+        <div class="bg-brand-deep px-6 py-4">
+          <p class="text-xs text-brand-accent uppercase tracking-wider font-mono mb-3">Sync</p>
+          <div class="space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+              <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate daemon start</code>
+              <span class="text-brand-muted text-sm">Start the background sync daemon</span>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+              <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate daemon stop</code>
+              <span class="text-brand-muted text-sm">Stop the sync daemon</span>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+              <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate daemon status</code>
+              <span class="text-brand-muted text-sm">Check if the daemon is running</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Vault -->
+        <div class="bg-brand-deep px-6 py-4">
+          <p class="text-xs text-brand-accent uppercase tracking-wider font-mono mb-3">Vault</p>
+          <div class="space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+              <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate files</code>
+              <span class="text-brand-muted text-sm">List all tracked files in your vault</span>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+              <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate log</code>
+              <span class="text-brand-muted text-sm">Show recent sync activity</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- MCP -->
+        <div class="bg-brand-deep px-6 py-4">
+          <p class="text-xs text-brand-accent uppercase tracking-wider font-mono mb-3">MCP Server</p>
+          <div class="space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+              <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate mcp serve</code>
+              <span class="text-brand-muted text-sm">Start the local MCP server for agent search</span>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+              <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate mcp api-key</code>
+              <span class="text-brand-muted text-sm">Manage MCP API keys</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </section>

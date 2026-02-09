@@ -24,7 +24,7 @@ ContextMate syncs them everywhere:
 - **Cross-agent**: Knowledge written in Claude Code flows to OpenClaw and back.
 - **Zero-knowledge encryption**: Your passphrase never leaves your device. The server stores only encrypted blobs.
 
-## How It Works
+## Quick Start
 
 **1. Install and create your encrypted vault**
 
@@ -46,6 +46,49 @@ contextmate daemon start
 ```
 
 That's it. File changes are detected, encrypted locally, and pushed to the cloud. Other devices pull and decrypt in real time via WebSocket.
+
+## CLI Reference
+
+| Command | Description |
+|---------|-------------|
+| `contextmate init` | Create a new account or log into an existing one |
+| `contextmate status` | Show connection status, account info, and sync state |
+| `contextmate adapter claude init` | Import Claude Code files and create symlinks |
+| `contextmate adapter claude status` | Check Claude Code symlink health |
+| `contextmate adapter claude remove` | Remove symlinks and restore originals |
+| `contextmate adapter openclaw init` | Import OpenClaw files and create symlinks |
+| `contextmate adapter openclaw status` | Check OpenClaw symlink health |
+| `contextmate adapter openclaw remove` | Remove symlinks and restore originals |
+| `contextmate daemon start` | Start the background sync daemon |
+| `contextmate daemon stop` | Stop the sync daemon |
+| `contextmate daemon status` | Check if the daemon is running |
+| `contextmate files` | List all tracked files in your vault |
+| `contextmate log` | Show recent sync activity |
+| `contextmate mcp serve` | Start the local MCP server (BM25 search) |
+| `contextmate mcp api-key` | Manage MCP API keys |
+| `contextmate reset` | Remove all ContextMate data and symlinks from this machine |
+
+### Multi-device login
+
+To set up ContextMate on a second machine, install and choose "Log into existing account" during init. You'll need your User ID and passphrase.
+
+```bash
+contextmate init
+# Choose: Log into existing account
+# Enter your User ID and passphrase
+```
+
+### Scanning project-specific skills
+
+To import skills from project directories (e.g. `.claude/skills/` inside your repos), add `scanPaths` to your config:
+
+```toml
+# ~/.contextmate/config.toml
+[adapters.claude]
+scanPaths = ["/Users/you/Developer"]
+```
+
+Then re-run `contextmate adapter claude init` to pick them up.
 
 ## Architecture
 
@@ -113,11 +156,11 @@ npm test
 ```
 src/                  # CLI client
   bin/                #   Entry point
-  cli/                #   Commands (init, status, adapter, mcp, daemon)
+  cli/                #   Commands (init, status, adapter, daemon, mcp, files, log, reset)
   crypto/             #   Encryption (AES-256-GCM, Argon2id, HKDF, BLAKE3)
   sync/               #   Sync engine (watcher, state, WebSocket)
   adapters/           #   Agent adapters (Claude Code, OpenClaw)
-  mcp/                #   Local MCP server (BM25 + vector search)
+  mcp/                #   Local MCP server (BM25 search)
 server/               # Cloud API (Hono, SQLite, WebSocket)
 web/                  # Web dashboard (React, Vite, Web Crypto API)
 www/                  # Marketing site (Astro 5, Tailwind CSS v4)

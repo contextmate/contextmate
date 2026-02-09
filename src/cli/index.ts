@@ -6,6 +6,7 @@ import { mcpCommand } from './mcp.js';
 import { daemonCommand } from './daemon.js';
 import { logCommand } from './log.js';
 import { filesCommand } from './files.js';
+import { resetCommand } from './reset.js';
 
 export const program = new Command()
   .name('contextmate')
@@ -19,3 +20,4 @@ program.addCommand(mcpCommand);
 program.addCommand(daemonCommand);
 program.addCommand(logCommand);
 program.addCommand(filesCommand);
+program.addCommand(resetCommand);
