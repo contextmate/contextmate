@@ -11,7 +11,7 @@ import { resetCommand } from './reset.js';
 export const program = new Command()
   .name('contextmate')
   .description('Zero-knowledge encrypted sync for AI agent context')
-  .version('0.2.3');
+  .version('0.2.4');
 
 program.addCommand(initCommand);
 program.addCommand(statusCommand);
