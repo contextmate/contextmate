@@ -3,7 +3,7 @@ WORKDIR /app
 COPY package*.json ./
 COPY tsconfig.json ./
 COPY src/ ./src/
-RUN npm ci
+RUN npm install
 RUN npx tsc
 RUN npm prune --omit=dev
 EXPOSE 3000
