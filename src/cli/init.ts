@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import * as readline from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
-import { access, writeFile } from 'node:fs/promises';
+import { access, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import {
@@ -224,9 +224,52 @@ export const initCommand = new Command('init')
         // Not initialized
       }
 
+      // Check for existing account
+      let existingUserId: string | null = null;
       if (alreadyInitialized) {
+        try {
+          const config = getDefaultConfig();
+          const authPath = join(config.data.path, 'auth.json');
+          const auth = JSON.parse(await readFile(authPath, 'utf-8'));
+          if (auth.userId) existingUserId = auth.userId;
+        } catch {
+          // No auth file or no userId
+        }
+
+        if (existingUserId) {
+          console.log('');
+          console.log(chalk.bold('ContextMate is already set up.'));
+          console.log(`  User ID: ${existingUserId}`);
+          console.log('');
+          console.log('  1. Keep current account (nothing to do)');
+          console.log('  2. Log into a different account');
+          console.log('  3. Create a brand new account');
+          console.log('');
+
+          const choice = await ask(chalk.bold('Choose (1, 2, or 3): '));
+          console.log('');
+
+          if (choice.trim() === '2') {
+            await loginExistingAccount();
+          } else if (choice.trim() === '3') {
+            const confirm = await ask(
+              chalk.yellow('This will create a new account and disconnect from the current one. Continue? (y/N): '),
+            );
+            if (confirm.toLowerCase() !== 'y') {
+              console.log('Aborted.');
+              return;
+            }
+            console.log('');
+            await createNewAccount();
+          } else {
+            console.log('No changes made.');
+          }
+          return;
+        }
+
+        // Initialized but no userId (local-only setup)
         const answer = await ask(
-          chalk.yellow('ContextMate is already initialized. Re-initialize? (y/N): '),
+          chalk.yellow('ContextMate is initialized but not registered. Re-initialize? (y/N): '),
         );
         if (answer.toLowerCase() !== 'y') {
           console.log('Aborted.');
@@ -234,6 +277,7 @@ export const initCommand = new Command('init')
         }
       }
 
+      // Fresh setup
       console.log('');
       console.log(chalk.bold('ContextMate Setup'));
       console.log('');
