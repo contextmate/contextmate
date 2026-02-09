@@ -26,17 +26,20 @@ export class ClaudeCodeAdapter extends BaseAdapter {
     // 1. Import skills: ~/.agents/skills/*/SKILL.md -> vault/skills/*/SKILL.md
     await this.importSkills(skillsPath, result);
 
-    // 2. Import rules: ~/.claude/rules/*.md -> vault/claude/rules/*.md
+    // 2. Scan project directories for project-specific skills
+    await this.importProjectSkills(join(claudeDir, 'projects'), result);
+
+    // 3. Import rules: ~/.claude/rules/*.md -> vault/claude/rules/*.md
     await this.importRules(join(claudeDir, 'rules'), result);
 
-    // 3. Import global CLAUDE.md: ~/.claude/CLAUDE.md -> vault/claude/CLAUDE.md
+    // 4. Import global CLAUDE.md: ~/.claude/CLAUDE.md -> vault/claude/CLAUDE.md
     await this.importSingleFile(
       join(claudeDir, 'CLAUDE.md'),
       join('claude', 'CLAUDE.md'),
       result,
     );
 
-    // 4. Import project memories: ~/.claude/projects/*/memory/*.md -> vault/claude/projects/*/memory/*.md
+    // 5. Import project memories: ~/.claude/projects/*/memory/*.md -> vault/claude/projects/*/memory/*.md
     await this.importProjectMemories(join(claudeDir, 'projects'), result);
 
     return result;
@@ -140,6 +143,44 @@ export class ClaudeCodeAdapter extends BaseAdapter {
   }
 
   // --- Import helpers ---
+
+  /**
+   * Decode a ~/.claude/projects/ directory name back to a filesystem path.
+   * e.g. "-Users-alex-Developer-myproject" -> "/Users/alex/Developer/myproject"
+   */
+  private decodeProjectDirName(name: string): string {
+    // The directory name is the absolute path with '/' replaced by '-'
+    // and a leading '-' instead of '/'. Reverse it.
+    return name.replace(/^-/, '/').replace(/-/g, '/');
+  }
+
+  private async importProjectSkills(projectsDir: string, result: ImportResult): Promise<void> {
+    let projectDirNames: string[];
+    try {
+      projectDirNames = await readdir(projectsDir);
+    } catch {
+      return;
+    }
+
+    for (const dirName of projectDirNames) {
+      const projectPath = this.decodeProjectDirName(dirName);
+      const projectSkillsDir = join(projectPath, '.claude', 'skills');
+
+      const skillDirs = await this.discoverSkillDirs(projectSkillsDir);
+      for (const skillDir of skillDirs) {
+        const skillName = relative(projectSkillsDir, skillDir);
+        const skillFile = join(skillDir, 'SKILL.md');
+        const vaultRelative = join('skills', skillName, 'SKILL.md');
+
+        try {
+          await this.importSingleFile(skillFile, vaultRelative, result);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          result.errors.push(`project skill ${skillName}: ${message}`);
+        }
+      }
+    }
+  }
 
   private async importSkills(skillsPath: string, result: ImportResult): Promise<void> {
     const skillDirs = await this.discoverSkillDirs(skillsPath);
