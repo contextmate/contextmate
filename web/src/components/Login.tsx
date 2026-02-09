@@ -5,7 +5,7 @@ export function Login() {
   const { login, sessionExpired } = useAuth();
   const [userId, setUserId] = useState('');
   const [passphrase, setPassphrase] = useState('');
-  const [serverUrl, setServerUrl] = useState('http://localhost:3000');
+  const [serverUrl, setServerUrl] = useState('https://api.contextmate.dev');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,7 +43,7 @@ export function Login() {
             className="login-input"
             value={serverUrl}
             onChange={(e) => setServerUrl(e.target.value)}
-            placeholder="http://localhost:3000"
+            placeholder="https://api.contextmate.dev"
             autoComplete="url"
             disabled={loading}
           />
