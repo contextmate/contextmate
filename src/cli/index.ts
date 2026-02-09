@@ -7,12 +7,14 @@ import { daemonCommand } from './daemon.js';
 import { logCommand } from './log.js';
 import { filesCommand } from './files.js';
 import { resetCommand } from './reset.js';
+import { setupCommand } from './setup.js';
 
 export const program = new Command()
   .name('contextmate')
   .description('Zero-knowledge encrypted sync for AI agent context')
   .version('0.2.5');
 
+program.addCommand(setupCommand);
 program.addCommand(initCommand);
 program.addCommand(statusCommand);
 program.addCommand(adapterCommand);
