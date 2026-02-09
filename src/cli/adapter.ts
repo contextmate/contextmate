@@ -1,6 +1,8 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { loadConfig, saveConfig, getConfigPath } from '../config.js';
+import * as readline from 'node:readline/promises';
+import { stdin, stdout } from 'node:process';
+import { loadConfig, saveConfig, getConfigPath, type ContextMateConfig } from '../config.js';
 import { getAdapter } from '../adapters/index.js';
 import { getBackupsPath } from '../utils/paths.js';
 import { access } from 'node:fs/promises';
@@ -12,6 +14,38 @@ async function isInitialized(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+async function ask(prompt: string): Promise<string> {
+  const rl = readline.createInterface({ input: stdin, output: stdout });
+  const answer = await rl.question(prompt);
+  rl.close();
+  return answer;
+}
+
+async function promptScanPaths(config: ContextMateConfig): Promise<boolean> {
+  if (config.adapters.claude.scanPaths.length > 0) return false;
+
+  console.log('');
+  console.log(chalk.bold('Scan for project-specific skills?'));
+  console.log(chalk.dim('  ContextMate can scan your project directories for skills'));
+  console.log(chalk.dim('  stored in .claude/skills/ folders inside each repo.'));
+  console.log('');
+
+  const path = await ask(chalk.bold('Directory to scan (e.g. ~/Developer), or press Enter to skip: '));
+  const trimmed = path.trim();
+
+  if (!trimmed) return false;
+
+  // Expand ~ to home directory
+  const { homedir } = await import('node:os');
+  const resolved = trimmed.startsWith('~') ? trimmed.replace('~', homedir()) : trimmed;
+
+  config.adapters.claude.scanPaths = [resolved];
+  await saveConfig(config);
+  console.log(chalk.green(`  Scan path added: ${resolved}`));
+  console.log('');
+  return true;
 }
 
 function countByPrefix(items: string[], prefix: string): number {
@@ -32,7 +66,7 @@ function createAdapterSubcommands(agentName: string, displayName: string): Comma
         }
 
         const config = await loadConfig();
-        const adapter = getAdapter(agentName, {
+        let adapter = getAdapter(agentName, {
           vaultPath: config.vault.path,
           backupsPath: getBackupsPath(),
           scanPaths: config.adapters.claude.scanPaths,
@@ -53,6 +87,19 @@ function createAdapterSubcommands(agentName: string, displayName: string): Comma
         }
 
         console.log(`  Found: ${workspacePath}`);
+
+        // Prompt for scan paths (Claude adapter only, first time)
+        if (agentName === 'claude') {
+          const changed = await promptScanPaths(config);
+          if (changed) {
+            // Recreate adapter with updated scanPaths
+            adapter = getAdapter(agentName, {
+              vaultPath: config.vault.path,
+              backupsPath: getBackupsPath(),
+              scanPaths: config.adapters.claude.scanPaths,
+            });
+          }
+        }
 
         // Import files
         console.log(chalk.dim('Importing files to vault...'));
