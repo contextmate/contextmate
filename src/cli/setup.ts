@@ -133,7 +133,7 @@ async function initialSync(
             'X-Content-Hash': encryptedHash,
             'X-Version': '0',
           },
-          body: encrypted as unknown as BodyInit,
+          body: encrypted as any,
         },
       );
 

@@ -25,7 +25,7 @@ export class SyncClient {
           'X-Content-Hash': encryptedHash,
           'X-Version': String(version),
         },
-        body: encryptedData as unknown as BodyInit,
+        body: encryptedData as any,
       },
     );
 
