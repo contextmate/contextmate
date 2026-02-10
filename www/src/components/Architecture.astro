@@ -1,0 +1,570 @@
+---
+
+---
+
+<section id="architecture" class="py-24 px-6 relative overflow-hidden">
+  <h2 class="font-mono text-3xl md:text-4xl font-bold text-center mb-4">
+    How it all fits together
+  </h2>
+  <p class="text-brand-muted text-center mb-16 max-w-2xl mx-auto">
+    Every component on your machine, from AI apps to encrypted cloud sync.
+  </p>
+
+  <!-- Desktop interactive SVG -->
+  <div class="hidden md:block max-w-5xl mx-auto relative">
+    <svg
+      id="arch-svg"
+      viewBox="0 0 960 560"
+      xmlns="http://www.w3.org/2000/svg"
+      class="w-full h-auto"
+    >
+      <defs>
+        <filter id="arch-glow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur" />
+          <feFlood flood-color="#4fc3f7" flood-opacity="0.15" result="color" />
+          <feComposite in="color" in2="blur" operator="in" result="glow" />
+          <feComposite in="SourceGraphic" in2="glow" operator="over" />
+        </filter>
+        <filter id="arch-vault-glow" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="6" result="blur" />
+          <feFlood flood-color="#4fc3f7" flood-opacity="0.25" result="color" />
+          <feComposite in="color" in2="blur" operator="in" result="glow" />
+          <feComposite in="SourceGraphic" in2="glow" operator="over" />
+        </filter>
+        <filter id="arch-cloud-glow" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="5" result="blur" />
+          <feFlood flood-color="#ffd54f" flood-opacity="0.12" result="color" />
+          <feComposite in="color" in2="blur" operator="in" result="glow" />
+          <feComposite in="SourceGraphic" in2="glow" operator="over" />
+        </filter>
+      </defs>
+
+      <!-- ============================================ -->
+      <!-- CONNECTING PATHS                             -->
+      <!-- ============================================ -->
+
+      <!-- AI Apps → MCP Server (5 paths converging) -->
+      <path class="arch-path" d="M 148 60 C 148 95, 480 80, 480 120"
+        stroke="#2a2a4a" stroke-width="1.5" fill="none" opacity="0.3" />
+      <path class="arch-path" d="M 310 60 C 310 90, 480 85, 480 120"
+        stroke="#2a2a4a" stroke-width="1.5" fill="none" opacity="0.3" />
+      <path class="arch-path" d="M 480 60 C 480 90, 480 100, 480 120"
+        stroke="#2a2a4a" stroke-width="1.5" fill="none" opacity="0.3" />
+      <path class="arch-path" d="M 650 60 C 650 90, 480 85, 480 120"
+        stroke="#2a2a4a" stroke-width="1.5" fill="none" opacity="0.3" />
+      <path class="arch-path" d="M 812 60 C 812 95, 480 80, 480 120"
+        stroke="#2a2a4a" stroke-width="1.5" fill="none" opacity="0.3" />
+
+      <!-- MCP Server → Vault -->
+      <path class="arch-path" d="M 480 170 C 480 195, 480 225, 480 250"
+        stroke="#2a2a4a" stroke-width="1.5" fill="none" opacity="0.3" />
+
+      <!-- Adapters → Vault -->
+      <path class="arch-path" d="M 210 280 C 280 280, 340 280, 400 280"
+        stroke="#2a2a4a" stroke-width="1.5" fill="none" opacity="0.3" />
+
+      <!-- Vault → Sync Daemon -->
+      <path class="arch-path" d="M 560 280 C 620 280, 680 280, 740 280"
+        stroke="#2a2a4a" stroke-width="1.5" fill="none" opacity="0.3" />
+
+      <!-- Key Hierarchy → Vault -->
+      <path class="arch-path" d="M 260 430 C 320 430, 380 350, 440 310"
+        stroke="#2a2a4a" stroke-width="1.5" fill="none" opacity="0.3" />
+
+      <!-- Sync Daemon → Cloud Server -->
+      <path class="arch-path" d="M 810 310 C 810 360, 750 420, 720 430"
+        stroke="#2a2a4a" stroke-width="1.5" fill="none" opacity="0.3" />
+
+      <!-- path labels -->
+      <text x="300" y="95" fill="#888888" font-size="9" font-family="var(--font-mono)" text-anchor="middle" opacity="0.7">stdio</text>
+      <text x="660" y="95" fill="#888888" font-size="9" font-family="var(--font-mono)" text-anchor="middle" opacity="0.7">stdio</text>
+      <text x="305" y="268" fill="#888888" font-size="9" font-family="var(--font-mono)" text-anchor="middle" opacity="0.7">symlinks</text>
+      <text x="655" y="268" fill="#888888" font-size="9" font-family="var(--font-mono)" text-anchor="middle" opacity="0.7">watch + encrypt</text>
+      <text x="830" y="380" fill="#ffd54f" font-size="9" font-family="var(--font-mono)" text-anchor="middle" opacity="0.6">AES-256-GCM</text>
+
+      <!-- ============================================ -->
+      <!-- TOP ROW: AI App Nodes                        -->
+      <!-- ============================================ -->
+
+      <!-- Claude Desktop -->
+      <g class="arch-node" data-connections="path-0" data-label="Claude Desktop&#10;Chat with your memories and skills">
+        <rect x="88" y="20" width="120" height="40" rx="8" fill="#16213e" stroke="#2a2a4a" stroke-width="1" filter="url(#arch-glow)" />
+        <g transform="translate(100, 30)">
+          <rect x="0" y="0" width="14" height="14" rx="3" fill="#4fc3f7" opacity="0.15" stroke="#4fc3f7" stroke-width="1" />
+          <text x="7" y="11" fill="#4fc3f7" font-size="9" font-family="var(--font-mono)" font-weight="bold" text-anchor="middle">C</text>
+        </g>
+        <text x="122" y="44" fill="#e0e0e0" font-size="10" font-family="var(--font-sans)" dominant-baseline="middle">Claude Desktop</text>
+      </g>
+
+      <!-- Claude Code -->
+      <g class="arch-node" data-connections="path-1" data-label="Claude Code&#10;Terminal-based coding agent">
+        <rect x="250" y="20" width="120" height="40" rx="8" fill="#16213e" stroke="#2a2a4a" stroke-width="1" filter="url(#arch-glow)" />
+        <g transform="translate(262, 30)">
+          <rect x="0" y="0" width="14" height="11" rx="2" stroke="#4fc3f7" stroke-width="1" fill="none" />
+          <path d="M3 3l3 2.5-3 2.5" stroke="#4fc3f7" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+        </g>
+        <text x="284" y="44" fill="#e0e0e0" font-size="10" font-family="var(--font-sans)" dominant-baseline="middle">Claude Code</text>
+      </g>
+
+      <!-- Cursor -->
+      <g class="arch-node" data-connections="path-2" data-label="Cursor&#10;AI code editor">
+        <rect x="420" y="20" width="120" height="40" rx="8" fill="#16213e" stroke="#2a2a4a" stroke-width="1" filter="url(#arch-glow)" />
+        <g transform="translate(432, 30)">
+          <path d="M2 0l10 7-10 7z" fill="#4fc3f7" opacity="0.3" stroke="#4fc3f7" stroke-width="1" stroke-linejoin="round" />
+        </g>
+        <text x="452" y="44" fill="#e0e0e0" font-size="10" font-family="var(--font-sans)" dominant-baseline="middle">Cursor</text>
+      </g>
+
+      <!-- Windsurf -->
+      <g class="arch-node" data-connections="path-3" data-label="Windsurf&#10;AI-powered IDE">
+        <rect x="590" y="20" width="120" height="40" rx="8" fill="#16213e" stroke="#2a2a4a" stroke-width="1" filter="url(#arch-glow)" />
+        <g transform="translate(602, 29)">
+          <path d="M0 12 C4 4, 8 0, 14 4" stroke="#4fc3f7" stroke-width="1.2" fill="none" stroke-linecap="round" />
+          <path d="M2 14 C6 6, 10 2, 16 6" stroke="#4fc3f7" stroke-width="1" fill="none" stroke-linecap="round" opacity="0.5" />
+        </g>
+        <text x="624" y="44" fill="#e0e0e0" font-size="10" font-family="var(--font-sans)" dominant-baseline="middle">Windsurf</text>
+      </g>
+
+      <!-- ChatGPT -->
+      <g class="arch-node" data-connections="path-4" data-label="ChatGPT Desktop&#10;OpenAI's desktop assistant">
+        <rect x="752" y="20" width="120" height="40" rx="8" fill="#16213e" stroke="#2a2a4a" stroke-width="1" filter="url(#arch-glow)" />
+        <g transform="translate(764, 29)">
+          <circle cx="7" cy="7" r="6" stroke="#4fc3f7" stroke-width="1" fill="none" />
+          <path d="M4 7 C4 4, 10 4, 10 7 C10 10, 4 10, 4 7" stroke="#4fc3f7" stroke-width="0.8" fill="#4fc3f7" opacity="0.2" />
+        </g>
+        <text x="786" y="44" fill="#e0e0e0" font-size="10" font-family="var(--font-sans)" dominant-baseline="middle">ChatGPT</text>
+      </g>
+
+      <!-- ============================================ -->
+      <!-- MCP SERVER NODE                              -->
+      <!-- ============================================ -->
+
+      <g class="arch-node" data-connections="path-0,path-1,path-2,path-3,path-4,path-5" data-label="MCP Server (stdio)&#10;6 tools: search, read, write memories + skills">
+        <rect x="405" y="120" width="150" height="50" rx="10" fill="#16213e" stroke="#4fc3f7" stroke-width="1" opacity="0.9" filter="url(#arch-glow)" />
+        <g transform="translate(417, 134)">
+          <rect x="0" y="0" width="14" height="14" rx="2" stroke="#4fc3f7" stroke-width="1" fill="none" />
+          <circle cx="7" cy="7" r="3" fill="#4fc3f7" opacity="0.3" />
+          <circle cx="7" cy="7" r="1.5" fill="#4fc3f7" opacity="0.6" />
+        </g>
+        <text x="440" y="144" fill="#e0e0e0" font-size="11" font-family="var(--font-sans)" dominant-baseline="middle" font-weight="500">MCP Server</text>
+        <text x="440" y="159" fill="#888888" font-size="9" font-family="var(--font-mono)" dominant-baseline="middle">6 tools</text>
+      </g>
+
+      <!-- ============================================ -->
+      <!-- CENTRAL VAULT NODE (hero element)            -->
+      <!-- ============================================ -->
+
+      <g class="arch-node vault-node" data-connections="path-5,path-6,path-7,path-8" data-label="Local Vault&#10;~/.contextmate/vault/&#10;Skills, memories, rules — all in one place">
+        <rect x="400" y="250" width="160" height="60" rx="12" fill="#16213e" stroke="#4fc3f7" stroke-width="1.5" filter="url(#arch-vault-glow)" />
+        <!-- Vault/folder icon -->
+        <g transform="translate(415, 264)">
+          <path d="M0 4 L0 20 L22 20 L22 4 L12 4 L10 0 L0 0 Z" fill="#4fc3f7" opacity="0.12" stroke="#4fc3f7" stroke-width="1.2" stroke-linejoin="round" />
+          <line x1="4" y1="10" x2="18" y2="10" stroke="#4fc3f7" stroke-width="0.8" opacity="0.4" />
+          <line x1="4" y1="14" x2="14" y2="14" stroke="#4fc3f7" stroke-width="0.8" opacity="0.4" />
+        </g>
+        <text x="446" y="278" fill="#e0e0e0" font-size="12" font-family="var(--font-sans)" dominant-baseline="middle" font-weight="600">Local Vault</text>
+        <text x="446" y="296" fill="#4fc3f7" font-size="9" font-family="var(--font-mono)" dominant-baseline="middle" opacity="0.7">~/.contextmate/vault/</text>
+      </g>
+
+      <!-- ============================================ -->
+      <!-- LEFT: ADAPTERS NODE                          -->
+      <!-- ============================================ -->
+
+      <g class="arch-node" data-connections="path-6" data-label="Adapters&#10;Symlink agent files into the vault&#10;Claude Code + OpenClaw supported">
+        <rect x="60" y="255" width="150" height="50" rx="8" fill="#16213e" stroke="#2a2a4a" stroke-width="1" filter="url(#arch-glow)" />
+        <g transform="translate(72, 268)">
+          <path d="M0 6h6l3-6 3 6h6" stroke="#4fc3f7" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M0 16h6l3-6 3 6h6" stroke="#4fc3f7" stroke-width="1" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.4" />
+        </g>
+        <text x="96" y="283" fill="#e0e0e0" font-size="11" font-family="var(--font-sans)" dominant-baseline="middle">Adapters</text>
+        <text x="96" y="297" fill="#888888" font-size="9" font-family="var(--font-sans)" dominant-baseline="middle">Claude + OpenClaw</text>
+      </g>
+
+      <!-- ============================================ -->
+      <!-- RIGHT: SYNC DAEMON NODE                      -->
+      <!-- ============================================ -->
+
+      <g class="arch-node" data-connections="path-7,path-9" data-label="Sync Daemon&#10;Watches vault for changes&#10;Encrypts and uploads to cloud">
+        <rect x="740" y="255" width="150" height="50" rx="8" fill="#16213e" stroke="#2a2a4a" stroke-width="1" filter="url(#arch-glow)" />
+        <g transform="translate(752, 268)">
+          <circle cx="8" cy="8" r="7" stroke="#4fc3f7" stroke-width="1" fill="none" />
+          <path d="M5 8a3 3 0 015-1" stroke="#4fc3f7" stroke-width="1.2" fill="none" stroke-linecap="round" />
+          <path d="M10 5l0 3 2 0" stroke="#4fc3f7" stroke-width="1" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+        </g>
+        <text x="774" y="283" fill="#e0e0e0" font-size="11" font-family="var(--font-sans)" dominant-baseline="middle">Sync Daemon</text>
+        <text x="774" y="297" fill="#888888" font-size="9" font-family="var(--font-sans)" dominant-baseline="middle">chokidar + WebSocket</text>
+      </g>
+
+      <!-- ============================================ -->
+      <!-- BOTTOM LEFT: KEY HIERARCHY NODE              -->
+      <!-- ============================================ -->
+
+      <g class="arch-node" data-connections="path-8" data-label="Key Hierarchy&#10;Passphrase → Argon2id → Master Key&#10;→ HKDF: vault, auth, sharing branches">
+        <rect x="80" y="410" width="180" height="55" rx="8" fill="#16213e" stroke="#2a2a4a" stroke-width="1" filter="url(#arch-glow)" />
+        <g transform="translate(92, 423)">
+          <rect x="0" y="6" width="14" height="12" rx="2" fill="#4fc3f7" opacity="0.15" stroke="#4fc3f7" stroke-width="1" />
+          <path d="M3 6V4a4 4 0 018 0v2" stroke="#4fc3f7" stroke-width="1.2" fill="none" stroke-linecap="round" />
+          <circle cx="7" cy="13" r="1.5" fill="#4fc3f7" opacity="0.5" />
+        </g>
+        <text x="114" y="438" fill="#e0e0e0" font-size="11" font-family="var(--font-sans)" dominant-baseline="middle">Key Hierarchy</text>
+        <text x="114" y="455" fill="#888888" font-size="8.5" font-family="var(--font-mono)" dominant-baseline="middle">Passphrase → Argon2id → HKDF</text>
+      </g>
+
+      <!-- ============================================ -->
+      <!-- BOTTOM RIGHT: CLOUD SERVER NODE              -->
+      <!-- ============================================ -->
+
+      <g class="arch-node" data-connections="path-9" data-label="Cloud Server + Web Dashboard&#10;Stores only encrypted blobs&#10;api.contextmate.dev / app.contextmate.dev">
+        <rect x="600" y="410" width="200" height="65" rx="8" fill="#16213e" stroke="#2a2a4a" stroke-width="1" filter="url(#arch-cloud-glow)" />
+        <g transform="translate(614, 422)">
+          <path d="M6 14C2 14 0 11 0 9c0-2 1.5-4 4-4 .5-3 3-5 6-5s5.5 2 6 5c2.5 0 4 2 4 4s-2 5-6 5z"
+            fill="#ffd54f" opacity="0.08" stroke="#ffd54f" stroke-width="1" opacity="0.5" />
+        </g>
+        <text x="642" y="440" fill="#e0e0e0" font-size="11" font-family="var(--font-sans)" dominant-baseline="middle">Cloud Server</text>
+        <text x="642" y="455" fill="#ffd54f" font-size="8.5" font-family="var(--font-mono)" dominant-baseline="middle" opacity="0.7">api.contextmate.dev</text>
+
+        <!-- Divider -->
+        <line x1="614" y1="462" x2="786" y2="462" stroke="#2a2a4a" stroke-width="0.5" />
+
+        <g transform="translate(614, 465)">
+          <rect x="0" y="1" width="12" height="9" rx="1.5" stroke="#4fc3f7" stroke-width="0.8" fill="none" />
+          <rect x="2" y="3" width="8" height="5" rx="0.5" fill="#4fc3f7" opacity="0.1" />
+        </g>
+        <text x="634" y="473" fill="#888888" font-size="8.5" font-family="var(--font-mono)" dominant-baseline="middle">app.contextmate.dev</text>
+      </g>
+
+      <!-- ============================================ -->
+      <!-- LEGEND                                       -->
+      <!-- ============================================ -->
+      <g transform="translate(355, 530)">
+        <circle cx="0" cy="0" r="4" fill="#4fc3f7" />
+        <text x="10" y="4" fill="#888888" font-size="9.5" font-family="var(--font-sans)">= local data</text>
+        <circle cx="120" cy="0" r="4" fill="#ffd54f" />
+        <text x="130" y="4" fill="#888888" font-size="9.5" font-family="var(--font-sans)">= encrypted in transit</text>
+      </g>
+    </svg>
+
+    <!-- Tooltip -->
+    <div id="arch-tooltip" class="arch-tooltip">
+      <span id="arch-tooltip-text"></span>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- MOBILE: Simplified vertical card layout      -->
+  <!-- ============================================ -->
+  <div class="md:hidden flex flex-col items-center gap-4 max-w-sm mx-auto">
+
+    <!-- AI Apps -->
+    <div class="w-full bg-brand-surface border border-brand-border rounded-xl p-4">
+      <p class="text-xs text-brand-accent uppercase tracking-wider font-mono mb-3">AI Apps</p>
+      <div class="flex flex-wrap gap-2">
+        <span class="text-xs text-brand-text bg-brand-deep rounded-md px-2.5 py-1.5">Claude Desktop</span>
+        <span class="text-xs text-brand-text bg-brand-deep rounded-md px-2.5 py-1.5">Claude Code</span>
+        <span class="text-xs text-brand-text bg-brand-deep rounded-md px-2.5 py-1.5">Cursor</span>
+        <span class="text-xs text-brand-text bg-brand-deep rounded-md px-2.5 py-1.5">Windsurf</span>
+        <span class="text-xs text-brand-text bg-brand-deep rounded-md px-2.5 py-1.5">ChatGPT</span>
+      </div>
+    </div>
+
+    <!-- Arrow: stdio -->
+    <div class="flex flex-col items-center gap-0.5">
+      <span class="text-brand-accent font-mono text-xs tracking-wide">stdio (MCP)</span>
+      <svg width="16" height="20" viewBox="0 0 16 20" fill="none">
+        <path d="M8 0v16M3 12l5 6 5-6" stroke="#4fc3f7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </div>
+
+    <!-- MCP Server -->
+    <div class="w-full bg-brand-surface border border-brand-accent/30 rounded-xl p-4 flex items-center gap-3">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <rect x="1" y="1" width="18" height="18" rx="3" stroke="#4fc3f7" stroke-width="1.2" fill="none" />
+        <circle cx="10" cy="10" r="4" fill="#4fc3f7" opacity="0.2" stroke="#4fc3f7" stroke-width="1" />
+      </svg>
+      <div>
+        <p class="text-sm text-brand-text font-medium">MCP Server</p>
+        <p class="text-xs text-brand-muted">6 tools: search, read, write</p>
+      </div>
+    </div>
+
+    <!-- Arrow -->
+    <svg width="16" height="20" viewBox="0 0 16 20" fill="none">
+      <path d="M8 0v16M3 12l5 6 5-6" stroke="#4fc3f7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+
+    <!-- Vault (hero) -->
+    <div class="w-full bg-brand-surface border border-brand-accent rounded-xl p-5 relative overflow-hidden">
+      <div class="absolute inset-0 bg-gradient-to-br from-brand-accent/5 to-transparent"></div>
+      <div class="relative flex items-center gap-3">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M1 6L1 22L23 22L23 6L14 6L12 2L1 2Z" fill="#4fc3f7" opacity="0.1" stroke="#4fc3f7" stroke-width="1.3" stroke-linejoin="round" />
+        </svg>
+        <div>
+          <p class="text-sm text-brand-text font-semibold">Local Vault</p>
+          <p class="text-xs text-brand-accent font-mono">~/.contextmate/vault/</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Three-way branch -->
+    <div class="grid grid-cols-3 gap-3 w-full">
+      <!-- Adapters -->
+      <div class="bg-brand-surface border border-brand-border rounded-lg p-3 text-center">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" class="mx-auto mb-1.5">
+          <path d="M1 5h5l3-4 3 4h5" stroke="#4fc3f7" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M1 13h5l3-4 3 4h5" stroke="#4fc3f7" stroke-width="1" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.4" />
+        </svg>
+        <p class="text-xs text-brand-text font-medium">Adapters</p>
+        <p class="text-[10px] text-brand-muted">symlinks</p>
+      </div>
+
+      <!-- Key Hierarchy -->
+      <div class="bg-brand-surface border border-brand-border rounded-lg p-3 text-center">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" class="mx-auto mb-1.5">
+          <rect x="2" y="8" width="14" height="10" rx="2" stroke="#4fc3f7" stroke-width="1.2" fill="none" />
+          <path d="M5 8V5a4 4 0 018 0v3" stroke="#4fc3f7" stroke-width="1.2" fill="none" stroke-linecap="round" />
+        </svg>
+        <p class="text-xs text-brand-text font-medium">Keys</p>
+        <p class="text-[10px] text-brand-muted">HKDF</p>
+      </div>
+
+      <!-- Sync Daemon -->
+      <div class="bg-brand-surface border border-brand-border rounded-lg p-3 text-center">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" class="mx-auto mb-1.5">
+          <circle cx="9" cy="9" r="7" stroke="#4fc3f7" stroke-width="1.2" fill="none" />
+          <path d="M6 9a3 3 0 015-1" stroke="#4fc3f7" stroke-width="1.2" fill="none" stroke-linecap="round" />
+        </svg>
+        <p class="text-xs text-brand-text font-medium">Sync</p>
+        <p class="text-[10px] text-brand-muted">daemon</p>
+      </div>
+    </div>
+
+    <!-- Arrow: encrypted -->
+    <div class="flex flex-col items-center gap-0.5">
+      <svg width="16" height="20" viewBox="0 0 16 20" fill="none">
+        <path d="M8 0v16M3 12l5 6 5-6" stroke="#ffd54f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      <span class="text-[#ffd54f] font-mono text-xs tracking-wide">AES-256-GCM</span>
+    </div>
+
+    <!-- Cloud Server -->
+    <div class="w-full bg-brand-surface border border-brand-border rounded-xl p-4">
+      <div class="flex items-center gap-3 mb-2">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M5 14C2 14 0 11.5 0 9.5c0-2 1.5-3.5 3.5-3.5.5-3 3-5 6-5s5.5 2 6 5c2.5 0 4.5 2 4.5 3.5S18 14 15 14z"
+            fill="#ffd54f" opacity="0.08" stroke="#ffd54f" stroke-width="1" opacity="0.4" />
+        </svg>
+        <div>
+          <p class="text-sm text-brand-text font-medium">Cloud Server</p>
+          <p class="text-xs text-brand-muted font-mono">api.contextmate.dev</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 pt-2 border-t border-brand-border">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <rect x="2" y="3" width="16" height="12" rx="2" stroke="#4fc3f7" stroke-width="1" fill="none" />
+          <rect x="4" y="5" width="12" height="8" rx="1" fill="#4fc3f7" opacity="0.1" />
+        </svg>
+        <div>
+          <p class="text-sm text-brand-text font-medium">Web Dashboard</p>
+          <p class="text-xs text-brand-muted font-mono">app.contextmate.dev</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .arch-tooltip {
+    position: absolute;
+    pointer-events: none;
+    background: #0f1729;
+    border: 1px solid #2a2a4a;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 12px;
+    color: #e0e0e0;
+    white-space: pre-line;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 20;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+    max-width: 260px;
+    line-height: 1.5;
+  }
+
+  .arch-tooltip.visible {
+    opacity: 1;
+  }
+
+  .arch-node {
+    cursor: pointer;
+  }
+
+  .arch-node rect {
+    transition: stroke 0.2s ease, stroke-width 0.2s ease;
+  }
+
+  .arch-node:hover rect {
+    stroke: #4fc3f7;
+    stroke-width: 1.5;
+  }
+
+  .vault-node:hover rect {
+    stroke: #4fc3f7;
+    stroke-width: 2;
+  }
+
+  .arch-path {
+    transition: opacity 0.3s ease, stroke 0.3s ease;
+  }
+</style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const svg = document.getElementById('arch-svg');
+    if (!svg) return;
+
+    const paths = svg.querySelectorAll('.arch-path');
+    const nodes = svg.querySelectorAll('.arch-node');
+    const tooltip = document.getElementById('arch-tooltip');
+    const tooltipText = document.getElementById('arch-tooltip-text');
+
+    const particles: {
+      el: SVGCircleElement;
+      path: SVGPathElement;
+      totalLength: number;
+      progress: number;
+      speed: number;
+      isEncrypted: boolean;
+    }[] = [];
+
+    // Tag paths with indices
+    paths.forEach((path, i) => {
+      path.setAttribute('data-path-index', String(i));
+    });
+
+    // Identify which paths carry encrypted traffic (path to cloud = index 9)
+    const encryptedPathIndices = new Set([9]);
+
+    // ── Particle animation ──────────────────────────
+
+    let isVisible = false;
+    let animating = false;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        isVisible = entries[0]!.isIntersecting;
+        if (isVisible && !animating) animate();
+      },
+      { threshold: 0.15 }
+    );
+    observer.observe(svg);
+
+    // Create 1 particle per path (cleaner than 2 for this many paths)
+    paths.forEach((path, i) => {
+      const svgPath = path as SVGPathElement;
+      const totalLength = svgPath.getTotalLength();
+      const isEncrypted = encryptedPathIndices.has(i);
+
+      const particleCount = i < 5 ? 1 : 2; // 1 per AI app path, 2 for infrastructure
+      for (let j = 0; j < particleCount; j++) {
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('r', '3');
+        circle.setAttribute('fill', isEncrypted ? '#ffd54f' : '#4fc3f7');
+        circle.style.filter = isEncrypted
+          ? 'drop-shadow(0 0 4px rgba(255,213,79,0.6))'
+          : 'drop-shadow(0 0 4px rgba(79,195,247,0.6))';
+        circle.style.pointerEvents = 'none';
+        svg.appendChild(circle);
+
+        particles.push({
+          el: circle,
+          path: svgPath,
+          totalLength,
+          progress: j * 0.5 + Math.random() * 0.3,
+          speed: 0.0015 + Math.random() * 0.001,
+          isEncrypted,
+        });
+      }
+    });
+
+    function animate() {
+      if (!isVisible) {
+        animating = false;
+        return;
+      }
+      animating = true;
+
+      particles.forEach((p) => {
+        p.progress += p.speed;
+        if (p.progress > 1) p.progress -= 1;
+
+        const point = p.path.getPointAtLength(p.progress * p.totalLength);
+        p.el.setAttribute('cx', String(point.x));
+        p.el.setAttribute('cy', String(point.y));
+
+        if (p.isEncrypted) {
+          p.el.setAttribute('fill', '#ffd54f');
+          p.el.setAttribute('r', '3.5');
+          p.el.style.filter = 'drop-shadow(0 0 5px rgba(255,213,79,0.7))';
+        } else {
+          p.el.setAttribute('fill', '#4fc3f7');
+          p.el.setAttribute('r', '3');
+          p.el.style.filter = 'drop-shadow(0 0 4px rgba(79,195,247,0.6))';
+        }
+      });
+
+      requestAnimationFrame(animate);
+    }
+
+    // ── Hover interactivity ─────────────────────────
+
+    nodes.forEach((node) => {
+      node.addEventListener('mouseenter', () => {
+        const connections = node.getAttribute('data-connections');
+        if (!connections) return;
+
+        const connectedIndices = connections.split(',').map((c) => {
+          const match = c.trim().match(/path-(\d+)/);
+          return match ? parseInt(match[1]!, 10) : -1;
+        });
+
+        paths.forEach((path, i) => {
+          if (connectedIndices.includes(i)) {
+            (path as SVGPathElement).style.opacity = '0.8';
+            (path as SVGPathElement).style.stroke = encryptedPathIndices.has(i) ? '#ffd54f' : '#4fc3f7';
+          } else {
+            (path as SVGPathElement).style.opacity = '0.06';
+          }
+        });
+
+        const label = node.getAttribute('data-label');
+        if (label && tooltip && tooltipText) {
+          tooltipText.textContent = label;
+          tooltip.classList.add('visible');
+        }
+      });
+
+      node.addEventListener('mousemove', (e) => {
+        if (!tooltip) return;
+        const mouseEvent = e as MouseEvent;
+        const container = svg.closest('div');
+        if (!container) return;
+        const rect = container.getBoundingClientRect();
+        tooltip.style.left = `${mouseEvent.clientX - rect.left + 14}px`;
+        tooltip.style.top = `${mouseEvent.clientY - rect.top - 12}px`;
+      });
+
+      node.addEventListener('mouseleave', () => {
+        paths.forEach((path) => {
+          (path as SVGPathElement).style.opacity = '0.3';
+          (path as SVGPathElement).style.stroke = '#2a2a4a';
+        });
+
+        if (tooltip) {
+          tooltip.classList.remove('visible');
+        }
+      });
+    });
+  });
+</script>
