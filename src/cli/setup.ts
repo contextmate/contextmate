@@ -6,7 +6,7 @@ import { stdin, stdout } from 'node:process';
 import { access, readFile, writeFile, mkdir, unlink } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { hostname, homedir } from 'node:os';
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import {
   generateSalt,
@@ -50,7 +50,7 @@ async function askSecret(prompt: string): Promise<string> {
 
 function openBrowser(url: string) {
   const cmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
-  exec(`${cmd} ${url}`);
+  execFile(cmd, [url], () => {});
 }
 
 function isPidRunning(pid: number): boolean {
@@ -576,7 +576,18 @@ export const setupCommand = new Command('setup')
       console.log(chalk.dim('  app.contextmate.dev'));
       console.log('');
 
-      // ─── Step 7: Start daemon ───
+      // ─── Step 7: MCP Integration ───
+      console.log(chalk.bold('MCP Integration'));
+      console.log(chalk.dim('  Connect ContextMate to AI apps for memory search, skill access, and more.'));
+      console.log('');
+
+      const wantMcp = await ask(chalk.bold('Connect MCP to your AI apps? (Y/n): '));
+      if (wantMcp.trim().toLowerCase() !== 'n') {
+        const { runMcpSetup } = await import('./mcp-setup.js');
+        await runMcpSetup();
+      }
+
+      // ─── Step 8: Start daemon ───
       console.log(chalk.dim('─'.repeat(40)));
       console.log('');
       console.log(chalk.green.bold('Setup complete!'));

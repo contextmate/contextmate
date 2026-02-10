@@ -13,7 +13,6 @@
     "better-sqlite3": "^12.6.2",
     "hono": "^4.7.4",
     "jsonwebtoken": "^9.0.2",
-    "postgres": "^3.4.5",
     "ws": "^8.18.0",
     "zod": "^3.24.2"
   },

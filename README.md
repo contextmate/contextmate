@@ -75,6 +75,7 @@ contextmate setup
 | `contextmate daemon status` | Check if the daemon is running |
 | `contextmate files` | List all tracked files in your vault |
 | `contextmate log` | Show recent sync activity |
+| `contextmate mcp setup` | Auto-configure MCP for Claude, Cursor, Windsurf, ChatGPT |
 | `contextmate mcp serve` | Start the local MCP server (BM25 search) |
 | `contextmate mcp api-key` | Manage MCP API keys |
 | `contextmate reset` | Remove all ContextMate data and symlinks from this machine |
@@ -97,14 +98,26 @@ Passphrase --> Argon2id --> Master Key --> HKDF branches
 
 Read the full security model at [contextmate.dev/security](https://contextmate.dev/security).
 
+### Connect to More AI Apps
+
+After setup, connect ContextMate's MCP server to Cursor, Windsurf, Claude Desktop, or ChatGPT:
+
+```bash
+contextmate mcp setup
+```
+
+This auto-detects installed apps and writes their MCP configs. Your AI apps get 6 tools: search, read, and write your memories and skills.
+
 ## Supported Agents
 
 | Agent | Status |
 |-------|--------|
-| Claude Code | Supported |
-| OpenClaw | Supported |
-| Cursor | Coming soon |
-| ChatGPT | Coming soon |
+| Claude Code | Supported (adapter + MCP) |
+| Claude Desktop | Supported (MCP) |
+| OpenClaw | Supported (adapter) |
+| Cursor | Supported (MCP) |
+| Windsurf | Supported (MCP) |
+| ChatGPT Desktop | Supported (MCP) |
 
 ## Development
 

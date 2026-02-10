@@ -1,4 +1,4 @@
-import type { FileMetadata, RemoteChange, DeviceInfo } from '../types.js';
+import type { FileMetadata, DeviceInfo } from '../types.js';
 
 export class SyncClient {
   private readonly baseUrl: string;
@@ -72,19 +72,6 @@ export class SyncClient {
 
     const data = (await response.json()) as { files: FileMetadata[] };
     return data.files;
-  }
-
-  async getRemoteChanges(since: number): Promise<RemoteChange[]> {
-    const response = await this.fetchWithRetry(
-      `${this.baseUrl}/api/changes?since=${since}`,
-      { method: 'GET' },
-    );
-
-    if (!response.ok) {
-      throw new Error(`Get changes failed: ${response.status} ${response.statusText}`);
-    }
-
-    return (await response.json()) as RemoteChange[];
   }
 
   async registerDevice(name: string, publicKey: string): Promise<string> {

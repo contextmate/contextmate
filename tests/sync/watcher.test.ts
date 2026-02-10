@@ -9,7 +9,7 @@ let watcher: FileWatcher;
 
 beforeEach(async () => {
   tmpDir = await mkdtemp(join(tmpdir(), 'contextmate-watcher-test-'));
-  watcher = new FileWatcher(tmpDir, 200);
+  watcher = new FileWatcher(tmpDir, 200, { usePolling: true });
 });
 
 afterEach(async () => {
@@ -40,7 +40,7 @@ function delay(ms: number): Promise<void> {
 describe('FileWatcher', () => {
   it('detects new file creation', async () => {
     watcher.start();
-    await waitForEvent(watcher, 'ready'); // allow chokidar to initialize
+    await waitForEvent(watcher, 'ready');
 
     const eventPromise = waitForEvent(watcher, 'file-added');
     await writeFile(join(tmpDir, 'new-file.md'), 'hello');

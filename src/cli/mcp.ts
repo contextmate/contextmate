@@ -4,6 +4,7 @@ import { randomBytes } from 'node:crypto';
 import { readFile, writeFile, access, mkdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { loadConfig, getConfigPath } from '../config.js';
+import { mcpSetupCommand } from './mcp-setup.js';
 import { getSearchDbPath } from '../utils/paths.js';
 import type { ApiKeyInfo, ApiPermission } from '../types.js';
 
@@ -59,14 +60,14 @@ const serveCommand = new Command('serve')
           process.exit(1);
         }
         scopeOptions = { scope: keyInfo.scope, permission: keyInfo.permissions };
-        console.log(chalk.dim(`Enforcing scope: ${keyInfo.scope} (${keyInfo.permissions})`));
+        console.error(chalk.dim(`Enforcing scope: ${keyInfo.scope} (${keyInfo.permissions})`));
       }
 
-      console.log(chalk.dim('Starting MCP server...'));
+      console.error(chalk.dim('Starting MCP server...'));
 
       // Handle graceful shutdown
       const shutdown = () => {
-        console.log(chalk.dim('\nShutting down MCP server...'));
+        console.error(chalk.dim('\nShutting down MCP server...'));
         process.exit(0);
       };
       process.on('SIGINT', shutdown);
@@ -74,7 +75,7 @@ const serveCommand = new Command('serve')
 
       const { startMcpServer } = await import('../mcp/index.js');
       await startMcpServer(config.vault.path, searchDbPath, scopeOptions);
-      console.log('MCP server running on stdio');
+      console.error('MCP server running on stdio');
     } catch (err) {
       console.error(chalk.red(`Error: ${err instanceof Error ? err.message : String(err)}`));
       process.exit(1);
@@ -204,4 +205,5 @@ apiKeyCommand
 export const mcpCommand = new Command('mcp')
   .description('Manage MCP server and API keys')
   .addCommand(serveCommand)
+  .addCommand(mcpSetupCommand)
   .addCommand(apiKeyCommand);

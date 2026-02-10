@@ -6,23 +6,30 @@ interface FileEvent {
   path: string;
 }
 
+export interface WatcherOptions {
+  usePolling?: boolean;
+}
+
 export class FileWatcher extends EventEmitter {
   private watcher: ChokidarWatcher | null = null;
   private readonly watchPath: string;
   private readonly debounceMs: number;
+  private readonly options: WatcherOptions;
   private pendingChanges: Map<string, 'added' | 'changed' | 'removed'> = new Map();
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(watchPath: string, debounceMs: number = 500) {
+  constructor(watchPath: string, debounceMs: number = 500, options: WatcherOptions = {}) {
     super();
     this.watchPath = watchPath;
     this.debounceMs = debounceMs;
+    this.options = options;
   }
 
   start(): void {
     this.watcher = chokidar.watch(this.watchPath, {
       ignoreInitial: true,
       persistent: true,
+      usePolling: this.options.usePolling,
       ignored: [
         /(^|\/)\../,
         /\.conflict\.md$/,

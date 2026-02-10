@@ -170,7 +170,7 @@ export class ApiClient {
       this.checkUnauthorized(res.status);
       throw new ApiError(`Failed to download file (${res.status})`, res.status);
     }
-    const version = parseInt(res.headers.get('X-File-Version') || '1', 10);
+    const version = parseInt(res.headers.get('X-Version') || '1', 10);
     const data = await res.arrayBuffer();
     return { data, version };
   }
