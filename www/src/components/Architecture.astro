@@ -4,17 +4,17 @@
 
 <section id="architecture" class="py-24 px-6 relative overflow-hidden">
   <h2 class="font-mono text-3xl md:text-4xl font-bold text-center mb-4">
-    How it all fits together
+    Sync everywhere. Trust no one.
   </h2>
   <p class="text-brand-muted text-center mb-16 max-w-2xl mx-auto">
-    Every component on your machine, from AI apps to encrypted cloud sync.
+    Your passphrase never leaves your machine. The server only sees encrypted blobs.
   </p>
 
   <!-- Desktop interactive SVG -->
   <div class="hidden md:block max-w-5xl mx-auto relative">
     <svg
       id="arch-svg"
-      viewBox="0 0 960 560"
+      viewBox="0 0 960 570"
       xmlns="http://www.w3.org/2000/svg"
       class="w-full h-auto"
     >
@@ -80,7 +80,12 @@
       <text x="660" y="95" fill="#888888" font-size="9" font-family="var(--font-mono)" text-anchor="middle" opacity="0.7">stdio</text>
       <text x="305" y="268" fill="#888888" font-size="9" font-family="var(--font-mono)" text-anchor="middle" opacity="0.7">symlinks</text>
       <text x="655" y="268" fill="#888888" font-size="9" font-family="var(--font-mono)" text-anchor="middle" opacity="0.7">watch + encrypt</text>
-      <text x="830" y="380" fill="#ffd54f" font-size="9" font-family="var(--font-mono)" text-anchor="middle" opacity="0.6">AES-256-GCM</text>
+      <!-- Lock icon on encrypted path -->
+      <g transform="translate(820, 370)">
+        <rect x="0" y="5" width="10" height="8" rx="1.5" fill="#ffd54f" opacity="0.12" stroke="#ffd54f" stroke-width="0.8" />
+        <path d="M2 5V3.5a3 3 0 016 0V5" stroke="#ffd54f" stroke-width="0.8" fill="none" stroke-linecap="round" />
+      </g>
+      <text x="842" y="380" fill="#ffd54f" font-size="9" font-family="var(--font-mono)" text-anchor="middle" opacity="0.6">AES-256-GCM</text>
 
       <!-- ============================================ -->
       <!-- TOP ROW: AI App Nodes                        -->
@@ -233,10 +238,20 @@
         <text x="634" y="473" fill="#888888" font-size="8.5" font-family="var(--font-mono)" dominant-baseline="middle">app.contextmate.dev</text>
       </g>
 
+      <!-- Zero-knowledge badge near cloud -->
+      <g transform="translate(618, 488)">
+        <rect x="0" y="0" width="164" height="20" rx="10" fill="#ffd54f" opacity="0.06" stroke="#ffd54f" stroke-width="0.6" opacity="0.3" />
+        <g transform="translate(8, 4)">
+          <rect x="0" y="3" width="7" height="6" rx="1" fill="#ffd54f" opacity="0.2" stroke="#ffd54f" stroke-width="0.6" />
+          <path d="M1.5 3V2a2 2 0 014 0v1" stroke="#ffd54f" stroke-width="0.6" fill="none" stroke-linecap="round" />
+        </g>
+        <text x="22" y="14" fill="#ffd54f" font-size="8" font-family="var(--font-mono)" opacity="0.6">zero-knowledge encryption</text>
+      </g>
+
       <!-- ============================================ -->
       <!-- LEGEND                                       -->
       <!-- ============================================ -->
-      <g transform="translate(355, 530)">
+      <g transform="translate(355, 535)">
         <circle cx="0" cy="0" r="4" fill="#4fc3f7" />
         <text x="10" y="4" fill="#888888" font-size="9.5" font-family="var(--font-sans)">= local data</text>
         <circle cx="120" cy="0" r="4" fill="#ffd54f" />
@@ -368,6 +383,17 @@
           <p class="text-sm text-brand-text font-medium">Web Dashboard</p>
           <p class="text-xs text-brand-muted font-mono">app.contextmate.dev</p>
         </div>
+      </div>
+    </div>
+
+    <!-- Zero-knowledge badge (mobile) -->
+    <div class="md:hidden flex justify-center mt-4">
+      <div class="inline-flex items-center gap-2 border border-[#ffd54f]/20 rounded-full px-4 py-1.5 bg-[#ffd54f]/5">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <rect x="1" y="5" width="10" height="7" rx="1.5" fill="#ffd54f" opacity="0.15" stroke="#ffd54f" stroke-width="0.8" />
+          <path d="M3 5V3.5a3 3 0 016 0V5" stroke="#ffd54f" stroke-width="0.8" fill="none" stroke-linecap="round" />
+        </svg>
+        <span class="text-[#ffd54f] font-mono text-xs opacity-70">zero-knowledge encryption</span>
       </div>
     </div>
   </div>
