@@ -1,0 +1,272 @@
+---
+---
+
+<section id="mcp" class="py-24 px-6">
+  <div class="max-w-5xl mx-auto">
+    <h2 class="font-mono text-3xl md:text-4xl font-bold text-center mb-4">
+      Connect your AI apps
+    </h2>
+    <p class="text-brand-muted text-center mb-6 max-w-2xl mx-auto">
+      ContextMate runs a local MCP server that gives any AI app access to your memories and skills. Agents can search, read, and <strong class="text-brand-text">write new memories</strong> — all through the standard protocol.
+    </p>
+
+    <!-- Tool overview -->
+    <div class="flex flex-wrap justify-center gap-3 mb-16">
+      <span class="inline-flex items-center gap-1.5 text-xs font-mono bg-brand-surface border border-brand-border rounded-full px-3 py-1.5">
+        <span class="w-1.5 h-1.5 rounded-full bg-brand-accent"></span>
+        search-memory
+      </span>
+      <span class="inline-flex items-center gap-1.5 text-xs font-mono bg-brand-surface border border-brand-border rounded-full px-3 py-1.5">
+        <span class="w-1.5 h-1.5 rounded-full bg-brand-accent"></span>
+        read-memory
+      </span>
+      <span class="inline-flex items-center gap-1.5 text-xs font-mono bg-brand-surface border border-brand-border rounded-full px-3 py-1.5">
+        <span class="w-1.5 h-1.5 rounded-full bg-brand-accent"></span>
+        list-memories
+      </span>
+      <span class="inline-flex items-center gap-1.5 text-xs font-mono bg-brand-surface border border-brand-border rounded-full px-3 py-1.5">
+        <span class="w-1.5 h-1.5 rounded-full bg-brand-accent"></span>
+        read-skill
+      </span>
+      <span class="inline-flex items-center gap-1.5 text-xs font-mono bg-brand-surface border border-brand-border rounded-full px-3 py-1.5">
+        <span class="w-1.5 h-1.5 rounded-full bg-brand-accent"></span>
+        list-skills
+      </span>
+      <span class="inline-flex items-center gap-1.5 text-xs font-mono bg-emerald-500/20 border border-emerald-500/30 rounded-full px-3 py-1.5 text-emerald-400">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+        write-memory
+      </span>
+    </div>
+
+    <!-- Client tabs -->
+    <div class="mcp-tabs">
+      <!-- Tab buttons -->
+      <div class="flex flex-wrap gap-2 mb-6 justify-center">
+        <button type="button" class="mcp-tab-btn active" data-tab="claude-desktop">Claude Desktop</button>
+        <button type="button" class="mcp-tab-btn" data-tab="claude-code">Claude Code</button>
+        <button type="button" class="mcp-tab-btn" data-tab="cursor">Cursor</button>
+        <button type="button" class="mcp-tab-btn" data-tab="windsurf">Windsurf</button>
+        <button type="button" class="mcp-tab-btn" data-tab="chatgpt">ChatGPT</button>
+      </div>
+
+      <!-- Claude Desktop -->
+      <div class="mcp-tab-panel active" data-panel="claude-desktop">
+        <p class="text-xs text-brand-muted mb-2 font-mono">
+          ~/Library/Application Support/Claude/claude_desktop_config.json
+        </p>
+        <div class="mcp-code-block">
+          <pre class="overflow-x-auto"><code>{`{
+  "mcpServers": {
+    "contextmate": {
+      "command": "npx",
+      "args": ["-y", "contextmate", "mcp", "serve"]
+    }
+  }
+}`}</code></pre>
+          <button type="button" class="mcp-copy-btn" data-copy={`{\n  "mcpServers": {\n    "contextmate": {\n      "command": "npx",\n      "args": ["-y", "contextmate", "mcp", "serve"]\n    }\n  }\n}`}>Copy</button>
+        </div>
+      </div>
+
+      <!-- Claude Code -->
+      <div class="mcp-tab-panel" data-panel="claude-code">
+        <p class="text-xs text-brand-muted mb-2 font-mono">Run in your terminal</p>
+        <div class="mcp-code-block">
+          <pre class="overflow-x-auto"><code><span class="text-brand-dim select-none">$ </span>claude mcp add contextmate -- npx -y contextmate mcp serve</code></pre>
+          <button type="button" class="mcp-copy-btn" data-copy="claude mcp add contextmate -- npx -y contextmate mcp serve">Copy</button>
+        </div>
+      </div>
+
+      <!-- Cursor -->
+      <div class="mcp-tab-panel" data-panel="cursor">
+        <p class="text-xs text-brand-muted mb-2 font-mono">~/.cursor/mcp.json</p>
+        <div class="mcp-code-block">
+          <pre class="overflow-x-auto"><code>{`{
+  "mcpServers": {
+    "contextmate": {
+      "command": "npx",
+      "args": ["-y", "contextmate", "mcp", "serve"]
+    }
+  }
+}`}</code></pre>
+          <button type="button" class="mcp-copy-btn" data-copy={`{\n  "mcpServers": {\n    "contextmate": {\n      "command": "npx",\n      "args": ["-y", "contextmate", "mcp", "serve"]\n    }\n  }\n}`}>Copy</button>
+        </div>
+      </div>
+
+      <!-- Windsurf -->
+      <div class="mcp-tab-panel" data-panel="windsurf">
+        <p class="text-xs text-brand-muted mb-2 font-mono">~/.codeium/windsurf/mcp_config.json</p>
+        <div class="mcp-code-block">
+          <pre class="overflow-x-auto"><code>{`{
+  "mcpServers": {
+    "contextmate": {
+      "command": "npx",
+      "args": ["-y", "contextmate", "mcp", "serve"]
+    }
+  }
+}`}</code></pre>
+          <button type="button" class="mcp-copy-btn" data-copy={`{\n  "mcpServers": {\n    "contextmate": {\n      "command": "npx",\n      "args": ["-y", "contextmate", "mcp", "serve"]\n    }\n  }\n}`}>Copy</button>
+        </div>
+      </div>
+
+      <!-- ChatGPT -->
+      <div class="mcp-tab-panel" data-panel="chatgpt">
+        <p class="text-xs text-brand-muted mb-3 font-mono">Manual setup via GUI</p>
+        <div class="space-y-3">
+          <div class="flex gap-3 items-start">
+            <span class="flex-shrink-0 w-6 h-6 rounded-full bg-brand-accent/10 border border-brand-accent/30 flex items-center justify-center font-mono text-xs font-bold text-brand-accent">1</span>
+            <p class="text-sm text-brand-muted">Open ChatGPT Desktop &rarr; <strong class="text-brand-text">Settings</strong> &rarr; <strong class="text-brand-text">MCP Servers</strong> &rarr; <strong class="text-brand-text">Add Server</strong></p>
+          </div>
+          <div class="flex gap-3 items-start">
+            <span class="flex-shrink-0 w-6 h-6 rounded-full bg-brand-accent/10 border border-brand-accent/30 flex items-center justify-center font-mono text-xs font-bold text-brand-accent">2</span>
+            <div class="text-sm">
+              <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+                <span class="text-brand-muted">Name:</span>
+                <span class="font-mono text-brand-text">ContextMate</span>
+                <span class="text-brand-muted">Command:</span>
+                <span class="font-mono text-brand-text">npx</span>
+                <span class="text-brand-muted">Arguments:</span>
+                <span class="font-mono text-brand-text">-y contextmate mcp serve</span>
+              </div>
+            </div>
+          </div>
+          <div class="flex gap-3 items-start">
+            <span class="flex-shrink-0 w-6 h-6 rounded-full bg-brand-accent/10 border border-brand-accent/30 flex items-center justify-center font-mono text-xs font-bold text-brand-accent">3</span>
+            <p class="text-sm text-brand-muted">Click <strong class="text-brand-text">Save</strong> and restart ChatGPT</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Auto-setup callout -->
+    <div class="mt-10 text-center">
+      <p class="text-brand-muted text-sm">
+        Or auto-configure all detected apps at once:
+      </p>
+      <div class="mt-3 max-w-md mx-auto">
+        <div class="mcp-code-block inline-block">
+          <pre class="overflow-x-auto"><code><span class="text-brand-dim select-none">$ </span>contextmate mcp setup</code></pre>
+          <button type="button" class="mcp-copy-btn" data-copy="contextmate mcp setup">Copy</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .mcp-tab-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8125rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-brand-border);
+    background: transparent;
+    color: var(--color-brand-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .mcp-tab-btn:hover {
+    color: var(--color-brand-text);
+    border-color: var(--color-brand-accent);
+  }
+
+  .mcp-tab-btn.active {
+    background: color-mix(in srgb, var(--color-brand-accent) 10%, transparent);
+    border-color: var(--color-brand-accent);
+    color: var(--color-brand-accent);
+  }
+
+  .mcp-tab-panel {
+    display: none;
+    max-width: 40rem;
+    margin: 0 auto;
+  }
+
+  .mcp-tab-panel.active {
+    display: block;
+  }
+
+  .mcp-code-block {
+    position: relative;
+    background: var(--color-brand-deep);
+    border: 1px solid var(--color-brand-border);
+    border-radius: 0.5rem;
+    padding: 1rem 1.25rem;
+  }
+
+  .mcp-code-block pre {
+    margin: 0;
+  }
+
+  .mcp-code-block code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    color: var(--color-brand-text);
+    white-space: pre;
+  }
+
+  .mcp-copy-btn {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    font-size: 0.75rem;
+    color: var(--color-brand-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+
+  .mcp-copy-btn:hover {
+    color: var(--color-brand-accent);
+  }
+</style>
+
+<script>
+  // Tab switching
+  document.querySelectorAll('.mcp-tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const tab = btn.getAttribute('data-tab');
+      if (!tab) return;
+
+      document.querySelectorAll('.mcp-tab-btn').forEach((b) => b.classList.remove('active'));
+      document.querySelectorAll('.mcp-tab-panel').forEach((p) => p.classList.remove('active'));
+
+      btn.classList.add('active');
+      document.querySelector(`.mcp-tab-panel[data-panel="${tab}"]`)?.classList.add('active');
+    });
+  });
+
+  // Copy buttons
+  document.querySelectorAll('.mcp-copy-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const text = btn.getAttribute('data-copy');
+      if (!text) return;
+
+      try {
+        await navigator.clipboard.writeText(text);
+        if (window.posthog) {
+          window.posthog.capture('mcp_config_copied', {
+            client: btn.closest('.mcp-tab-panel')?.getAttribute('data-panel') || 'auto-setup',
+          });
+        }
+        const original = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => {
+          btn.textContent = original;
+        }, 2000);
+      } catch {
+        // Select the code text as fallback
+        const code = btn.closest('.mcp-code-block')?.querySelector('code');
+        if (code) {
+          const range = document.createRange();
+          range.selectNodeContents(code);
+          const sel = window.getSelection();
+          sel?.removeAllRanges();
+          sel?.addRange(range);
+        }
+      }
+    });
+  });
+</script>
