@@ -7,8 +7,9 @@ import { readFile, writeFile, unlink, access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { hexToBytes } from '@noble/hashes/utils';
 import { loadConfig, getConfigPath } from '../config.js';
-import { getPidFilePath } from '../utils/paths.js';
+import { getPidFilePath, getBackupsPath } from '../utils/paths.js';
 import { deriveMasterKey, deriveVaultKey, decryptString } from '../crypto/index.js';
+import { MirrorAdapter } from '../adapters/mirror.js';
 
 async function isInitialized(): Promise<boolean> {
   try {
@@ -125,9 +126,36 @@ const startCommand = new Command('start')
       const engine = new SyncEngine(config, vaultKey, authToken);
       await engine.start();
 
+      // Start mirror symlink refresh if enabled
+      let mirrorInterval: ReturnType<typeof setInterval> | null = null;
+      if (config.adapters.mirror.enabled && config.adapters.mirror.targetPath) {
+        const mirrorAdapter = new MirrorAdapter({
+          vaultPath: config.vault.path,
+          backupsPath: getBackupsPath(),
+          include: config.adapters.mirror.include,
+        });
+        const targetPath = config.adapters.mirror.targetPath;
+
+        // Initial refresh
+        const initial = await mirrorAdapter.refreshSymlinks(targetPath);
+        if (initial.created.length > 0) {
+          console.log(chalk.dim(`  Mirror: ${initial.created.length} new symlinks`));
+        }
+
+        // Periodic refresh
+        mirrorInterval = setInterval(async () => {
+          try {
+            await mirrorAdapter.refreshSymlinks(targetPath);
+          } catch {
+            // Non-critical
+          }
+        }, config.sync.pollIntervalMs);
+      }
+
       // Handle graceful shutdown
       const shutdown = async () => {
         console.log(chalk.dim('\nStopping daemon...'));
+        if (mirrorInterval) clearInterval(mirrorInterval);
         await engine.stop();
         try {
           await unlink(pidFile);

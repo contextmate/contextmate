@@ -1,9 +1,19 @@
 import { readFile, readdir, access, stat, unlink, copyFile, mkdir } from 'node:fs/promises';
 import { join, relative, dirname } from 'node:path';
 import { homedir } from 'node:os';
-import { BaseAdapter, type ImportResult, type SymlinkResult } from './base.js';
+import picomatch from 'picomatch';
+import { BaseAdapter, type AdapterOptions, type ImportResult, type SymlinkResult } from './base.js';
 
 export class OpenClawAdapter extends BaseAdapter {
+  private extraFiles: string[];
+  private extraGlobs: string[];
+
+  constructor(options: AdapterOptions) {
+    super(options);
+    this.extraFiles = options.extraFiles ?? [];
+    this.extraGlobs = options.extraGlobs ?? [];
+  }
+
   get name(): string {
     return 'openclaw';
   }
@@ -182,7 +192,63 @@ export class OpenClawAdapter extends BaseAdapter {
       // No memory directory
     }
 
+    // Extra files from config
+    for (const name of this.extraFiles) {
+      const filePath = join(workspacePath, name);
+      try {
+        await access(filePath);
+        if (!files.includes(filePath)) {
+          files.push(filePath);
+        }
+      } catch {
+        // File doesn't exist, skip
+      }
+    }
+
+    // Extra globs from config
+    if (this.extraGlobs.length > 0) {
+      const isMatch = picomatch(this.extraGlobs);
+      const globMatches = await this.walkAndMatch(workspacePath, workspacePath, isMatch);
+      for (const fp of globMatches) {
+        if (!files.includes(fp)) {
+          files.push(fp);
+        }
+      }
+    }
+
     return files;
+  }
+
+  private async walkAndMatch(
+    dir: string,
+    base: string,
+    isMatch: (path: string) => boolean,
+  ): Promise<string[]> {
+    const matches: string[] = [];
+    let entries;
+    try {
+      entries = await readdir(dir);
+    } catch {
+      return matches;
+    }
+    for (const name of entries) {
+      if (name.startsWith('.') || name === 'node_modules') continue;
+      const full = join(dir, name);
+      try {
+        const s = await stat(full);
+        if (s.isDirectory()) {
+          matches.push(...await this.walkAndMatch(full, base, isMatch));
+        } else if (s.isFile()) {
+          const rel = relative(base, full);
+          if (isMatch(rel)) {
+            matches.push(full);
+          }
+        }
+      } catch {
+        // Skip inaccessible
+      }
+    }
+    return matches;
   }
 
   private async discoverVaultFiles(): Promise<string[]> {

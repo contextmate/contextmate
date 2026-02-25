@@ -3,8 +3,9 @@ import chalk from 'chalk';
 import * as readline from 'node:readline/promises';
 import { Writable } from 'node:stream';
 import { stdin, stdout } from 'node:process';
-import { access, readFile } from 'node:fs/promises';
+import { access, readFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import { homedir } from 'node:os';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { loadConfig, saveConfig, getConfigPath, type ContextMateConfig } from '../config.js';
 import { getAdapter } from '../adapters/index.js';
@@ -51,8 +52,6 @@ async function promptScanPaths(config: ContextMateConfig): Promise<boolean> {
 
   if (!trimmed) return false;
 
-  // Expand ~ to home directory
-  const { homedir } = await import('node:os');
   const resolved = trimmed.startsWith('~') ? trimmed.replace('~', homedir()) : trimmed;
 
   config.adapters.claude.scanPaths = [resolved];
@@ -102,6 +101,7 @@ async function pushDeviceSettings(config: ContextMateConfig): Promise<void> {
       adapters: {
         claude: config.adapters.claude.enabled,
         openclaw: config.adapters.openclaw.enabled,
+        mirror: config.adapters.mirror.enabled,
       },
     };
 
@@ -132,6 +132,57 @@ function countByPrefix(items: string[], prefix: string): number {
   return items.filter((i) => i.startsWith(prefix)).length;
 }
 
+function getAdapterOptions(agentName: string, config: ContextMateConfig) {
+  return {
+    vaultPath: config.vault.path,
+    backupsPath: getBackupsPath(),
+    scanPaths: config.adapters.claude.scanPaths,
+    extraFiles: config.adapters.openclaw.extraFiles,
+    extraGlobs: config.adapters.openclaw.extraGlobs,
+    include: config.adapters.mirror.include,
+  };
+}
+
+function getWorkspacePath(agentName: string, config: ContextMateConfig): string {
+  switch (agentName) {
+    case 'openclaw':
+      return config.adapters.openclaw.workspacePath;
+    case 'claude':
+      return config.adapters.claude.claudeDir;
+    case 'mirror':
+      return config.adapters.mirror.targetPath;
+    default:
+      return '';
+  }
+}
+
+function isAdapterEnabled(agentName: string, config: ContextMateConfig): boolean {
+  switch (agentName) {
+    case 'openclaw':
+      return config.adapters.openclaw.enabled;
+    case 'claude':
+      return config.adapters.claude.enabled;
+    case 'mirror':
+      return config.adapters.mirror.enabled;
+    default:
+      return false;
+  }
+}
+
+function setAdapterEnabled(agentName: string, config: ContextMateConfig, enabled: boolean): void {
+  switch (agentName) {
+    case 'openclaw':
+      config.adapters.openclaw.enabled = enabled;
+      break;
+    case 'claude':
+      config.adapters.claude.enabled = enabled;
+      break;
+    case 'mirror':
+      config.adapters.mirror.enabled = enabled;
+      break;
+  }
+}
+
 function createAdapterSubcommands(agentName: string, displayName: string): Command {
   const cmd = new Command(agentName).description(`Manage ${displayName} adapter`);
 
@@ -146,38 +197,64 @@ function createAdapterSubcommands(agentName: string, displayName: string): Comma
         }
 
         const config = await loadConfig();
-        let adapter = getAdapter(agentName, {
-          vaultPath: config.vault.path,
-          backupsPath: getBackupsPath(),
-          scanPaths: config.adapters.claude.scanPaths,
-        });
+        let adapter = getAdapter(agentName, getAdapterOptions(agentName, config));
+        let workspacePath: string;
 
-        // Detect workspace
-        console.log(chalk.dim(`Detecting ${displayName} workspace...`));
-        const workspacePath = await adapter.detect();
+        if (agentName === 'mirror') {
+          // Mirror adapter: prompt for target path
+          const targetInput = await ask(chalk.bold('Target directory (e.g. ~/ai-context): '));
+          const trimmed = targetInput.trim();
 
-        if (!workspacePath) {
-          console.error(chalk.red(`Could not detect ${displayName} workspace.`));
-          if (agentName === 'openclaw') {
-            console.error(chalk.dim('  Expected at: ~/.openclaw/workspace'));
-          } else {
-            console.error(chalk.dim('  Expected at: ~/.claude'));
+          if (!trimmed) {
+            console.error(chalk.red('Error: Target path cannot be empty.'));
+            process.exit(1);
           }
-          process.exit(1);
-        }
 
-        console.log(`  Found: ${workspacePath}`);
+          workspacePath = trimmed.startsWith('~') ? trimmed.replace('~', homedir()) : trimmed;
 
-        // Prompt for scan paths (Claude adapter only, first time)
-        if (agentName === 'claude') {
-          const changed = await promptScanPaths(config);
-          if (changed) {
-            // Recreate adapter with updated scanPaths
-            adapter = getAdapter(agentName, {
-              vaultPath: config.vault.path,
-              backupsPath: getBackupsPath(),
-              scanPaths: config.adapters.claude.scanPaths,
-            });
+          // Prompt for optional include patterns
+          console.log('');
+          console.log(chalk.dim('Include patterns filter which vault files appear in the target.'));
+          console.log(chalk.dim('Leave empty to mirror all vault files.'));
+          console.log(chalk.dim('Example: openclaw/**,skills/**'));
+          console.log('');
+          const includeStr = await ask(chalk.bold('Include patterns (comma-separated, or Enter for all): '));
+          const include = includeStr.trim()
+            ? includeStr.split(',').map((s) => s.trim())
+            : [];
+
+          config.adapters.mirror.include = include;
+
+          // Recreate adapter with updated include
+          adapter = getAdapter(agentName, getAdapterOptions(agentName, config));
+
+          // Create target directory
+          await mkdir(workspacePath, { recursive: true });
+          console.log(`  Target: ${workspacePath}`);
+        } else {
+          // Agent adapters: auto-detect workspace
+          console.log(chalk.dim(`Detecting ${displayName} workspace...`));
+          const detected = await adapter.detect();
+
+          if (!detected) {
+            console.error(chalk.red(`Could not detect ${displayName} workspace.`));
+            if (agentName === 'openclaw') {
+              console.error(chalk.dim('  Expected at: ~/.openclaw/workspace'));
+            } else {
+              console.error(chalk.dim('  Expected at: ~/.claude'));
+            }
+            process.exit(1);
+          }
+
+          workspacePath = detected;
+          console.log(`  Found: ${workspacePath}`);
+
+          // Prompt for scan paths (Claude adapter only, first time)
+          if (agentName === 'claude') {
+            const changed = await promptScanPaths(config);
+            if (changed) {
+              adapter = getAdapter(agentName, getAdapterOptions(agentName, config));
+            }
           }
         }
 
@@ -223,12 +300,13 @@ function createAdapterSubcommands(agentName: string, displayName: string): Comma
         }
 
         // Update config
+        setAdapterEnabled(agentName, config, true);
         if (agentName === 'openclaw') {
-          config.adapters.openclaw.enabled = true;
           config.adapters.openclaw.workspacePath = workspacePath;
-        } else {
-          config.adapters.claude.enabled = true;
+        } else if (agentName === 'claude') {
           config.adapters.claude.claudeDir = workspacePath;
+        } else if (agentName === 'mirror') {
+          config.adapters.mirror.targetPath = workspacePath;
         }
         await saveConfig(config);
 
@@ -254,34 +332,21 @@ function createAdapterSubcommands(agentName: string, displayName: string): Comma
         }
 
         const config = await loadConfig();
-        const adapter = getAdapter(agentName, {
-          vaultPath: config.vault.path,
-          backupsPath: getBackupsPath(),
-          scanPaths: config.adapters.claude.scanPaths,
-        });
+        const adapter = getAdapter(agentName, getAdapterOptions(agentName, config));
 
-        const isEnabled =
-          agentName === 'openclaw'
-            ? config.adapters.openclaw.enabled
-            : config.adapters.claude.enabled;
-
-        if (!isEnabled) {
+        if (!isAdapterEnabled(agentName, config)) {
           console.log(chalk.dim(`${displayName} adapter is not enabled.`));
           console.log(chalk.dim(`Run "contextmate adapter ${agentName} init" to set it up.`));
           return;
         }
 
-        const workspacePath =
-          agentName === 'openclaw'
-            ? config.adapters.openclaw.workspacePath
-            : config.adapters.claude.claudeDir;
-
+        const workspacePath = getWorkspacePath(agentName, config);
         const result = await adapter.verifySymlinks(workspacePath);
 
         console.log('');
         console.log(chalk.bold(`${displayName} Adapter Status`));
         console.log(chalk.dim('─'.repeat(40)));
-        console.log(`  Workspace: ${workspacePath}`);
+        console.log(`  ${agentName === 'mirror' ? 'Target:' : 'Workspace:'} ${workspacePath}`);
         console.log(`  Valid symlinks:  ${chalk.green(String(result.valid.length))}`);
         console.log(`  Broken symlinks: ${chalk.red(String(result.broken.length))}`);
 
@@ -310,36 +375,19 @@ function createAdapterSubcommands(agentName: string, displayName: string): Comma
         }
 
         const config = await loadConfig();
-        const adapter = getAdapter(agentName, {
-          vaultPath: config.vault.path,
-          backupsPath: getBackupsPath(),
-          scanPaths: config.adapters.claude.scanPaths,
-        });
+        const adapter = getAdapter(agentName, getAdapterOptions(agentName, config));
 
-        const isEnabled =
-          agentName === 'openclaw'
-            ? config.adapters.openclaw.enabled
-            : config.adapters.claude.enabled;
-
-        if (!isEnabled) {
+        if (!isAdapterEnabled(agentName, config)) {
           console.log(chalk.dim(`${displayName} adapter is not enabled.`));
           return;
         }
 
-        const workspacePath =
-          agentName === 'openclaw'
-            ? config.adapters.openclaw.workspacePath
-            : config.adapters.claude.claudeDir;
+        const workspacePath = getWorkspacePath(agentName, config);
 
         console.log(chalk.dim('Removing symlinks and restoring originals...'));
         await adapter.removeSymlinks(workspacePath);
 
-        // Update config
-        if (agentName === 'openclaw') {
-          config.adapters.openclaw.enabled = false;
-        } else {
-          config.adapters.claude.enabled = false;
-        }
+        setAdapterEnabled(agentName, config, false);
         await saveConfig(config);
 
         console.log(chalk.green(`${displayName} adapter removed.`));
@@ -355,4 +403,5 @@ function createAdapterSubcommands(agentName: string, displayName: string): Comma
 export const adapterCommand = new Command('adapter')
   .description('Manage agent adapters')
   .addCommand(createAdapterSubcommands('openclaw', 'OpenClaw'))
-  .addCommand(createAdapterSubcommands('claude', 'Claude Code'));
+  .addCommand(createAdapterSubcommands('claude', 'Claude Code'))
+  .addCommand(createAdapterSubcommands('mirror', 'Mirror'));

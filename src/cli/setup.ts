@@ -455,6 +455,9 @@ export const setupCommand = new Command('setup')
           vaultPath: config!.vault.path,
           backupsPath: getBackupsPath(),
           scanPaths: config!.adapters.claude.scanPaths,
+          extraFiles: config!.adapters.openclaw.extraFiles,
+          extraGlobs: config!.adapters.openclaw.extraGlobs,
+          include: config!.adapters.mirror.include,
         });
 
         // Import files
@@ -498,6 +501,9 @@ export const setupCommand = new Command('setup')
           vaultPath: config!.vault.path,
           backupsPath: getBackupsPath(),
           scanPaths: [],
+          extraFiles: config!.adapters.openclaw.extraFiles,
+          extraGlobs: config!.adapters.openclaw.extraGlobs,
+          include: config!.adapters.mirror.include,
         });
 
         console.log(chalk.dim('    Importing files...'));
@@ -515,6 +521,59 @@ export const setupCommand = new Command('setup')
         config!.adapters.openclaw.workspacePath = openclawDir;
       } else {
         console.log(chalk.dim('  ○ OpenClaw not detected'));
+      }
+
+      // No agents detected — offer mirror adapter
+      if (!claudeDetected && !openclawDetected) {
+        console.log('');
+        console.log(chalk.yellow('  No AI agents detected on this machine.'));
+        console.log('');
+        console.log(chalk.dim('  The Mirror adapter can sync your vault to any local folder,'));
+        console.log(chalk.dim('  so you can view and edit your agent\'s context files'));
+        console.log(chalk.dim('  using Obsidian, VS Code, or any editor.'));
+        console.log('');
+
+        const wantMirror = await ask(chalk.bold('  Set up Mirror sync? (Y/n): '));
+        if (wantMirror.trim().toLowerCase() !== 'n') {
+          const targetInput = await ask(chalk.bold('  Target directory (e.g. ~/ai-context): '));
+          const trimmed = targetInput.trim();
+
+          if (trimmed) {
+            const resolved = trimmed.startsWith('~') ? trimmed.replace('~', homedir()) : trimmed;
+
+            console.log(chalk.dim('  Include patterns filter which vault files appear in the target.'));
+            console.log(chalk.dim('  Leave empty to mirror everything.'));
+            const includeStr = await ask(chalk.bold('  Include patterns (comma-separated, or Enter for all): '));
+            const include = includeStr.trim()
+              ? includeStr.split(',').map((s: string) => s.trim())
+              : [];
+
+            config!.adapters.mirror.include = include;
+
+            const mirrorAdapter = getAdapter('mirror', {
+              vaultPath: config!.vault.path,
+              backupsPath: getBackupsPath(),
+              include,
+            });
+
+            await mkdir(resolved, { recursive: true });
+
+            // Import any existing files from target
+            console.log(chalk.dim('    Scanning target directory...'));
+            const importResult = await mirrorAdapter.import(resolved);
+            if (importResult.imported.length > 0) {
+              console.log(`    ${chalk.green(`${importResult.imported.length} files imported to vault`)}`);
+            }
+
+            // Create symlinks from target -> vault
+            console.log(chalk.dim('    Creating symlinks...'));
+            const symlinkResult = await mirrorAdapter.createSymlinks(resolved);
+            console.log(`    ${chalk.green(`${symlinkResult.created.length} symlinks`)}`);
+
+            config!.adapters.mirror.enabled = true;
+            config!.adapters.mirror.targetPath = resolved;
+          }
+        }
       }
 
       console.log('');
@@ -539,6 +598,9 @@ export const setupCommand = new Command('setup')
             vaultPath: config!.vault.path,
             backupsPath: getBackupsPath(),
             scanPaths: config!.adapters.claude.scanPaths,
+            extraFiles: config!.adapters.openclaw.extraFiles,
+            extraGlobs: config!.adapters.openclaw.extraGlobs,
+            include: config!.adapters.mirror.include,
           });
           console.log(chalk.dim('  Scanning for project skills...'));
           const importResult = await adapter.import(claudeDir);
@@ -627,8 +689,34 @@ export const setupCommand = new Command('setup')
       const engine = new SyncEngine(config!, vaultKey!, token!);
       await engine.start();
 
+      // Start mirror symlink refresh if enabled
+      let mirrorInterval: ReturnType<typeof setInterval> | null = null;
+      if (config!.adapters.mirror.enabled && config!.adapters.mirror.targetPath) {
+        const { MirrorAdapter } = await import('../adapters/mirror.js');
+        const mirrorAdapter = new MirrorAdapter({
+          vaultPath: config!.vault.path,
+          backupsPath: getBackupsPath(),
+          include: config!.adapters.mirror.include,
+        });
+        const targetPath = config!.adapters.mirror.targetPath;
+
+        const initial = await mirrorAdapter.refreshSymlinks(targetPath);
+        if (initial.created.length > 0) {
+          console.log(chalk.dim(`  Mirror: ${initial.created.length} new symlinks`));
+        }
+
+        mirrorInterval = setInterval(async () => {
+          try {
+            await mirrorAdapter.refreshSymlinks(targetPath);
+          } catch {
+            // Non-critical
+          }
+        }, config!.sync.pollIntervalMs);
+      }
+
       const shutdown = async () => {
         console.log(chalk.dim('\nStopping daemon...'));
+        if (mirrorInterval) clearInterval(mirrorInterval);
         await engine.stop();
         try { await unlink(pidFile); } catch { /* Already removed */ }
         console.log(chalk.green('Daemon stopped.'));

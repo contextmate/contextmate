@@ -23,6 +23,8 @@ export interface ContextMateConfig {
     openclaw: {
       enabled: boolean;
       workspacePath: string;
+      extraFiles: string[];
+      extraGlobs: string[];
     };
     claude: {
       enabled: boolean;
@@ -32,6 +34,11 @@ export interface ContextMateConfig {
       syncRules: boolean;
       syncProjectMemories: boolean;
       syncGlobalMemory: boolean;
+    };
+    mirror: {
+      enabled: boolean;
+      targetPath: string;
+      include: string[];
     };
   };
   mcp: {
@@ -69,6 +76,8 @@ export function getDefaultConfig(): ContextMateConfig {
       openclaw: {
         enabled: false,
         workspacePath: join(homedir(), '.openclaw', 'workspace'),
+        extraFiles: [],
+        extraGlobs: [],
       },
       claude: {
         enabled: false,
@@ -78,6 +87,11 @@ export function getDefaultConfig(): ContextMateConfig {
         syncRules: true,
         syncProjectMemories: true,
         syncGlobalMemory: true,
+      },
+      mirror: {
+        enabled: false,
+        targetPath: '',
+        include: [],
       },
     },
     mcp: {
