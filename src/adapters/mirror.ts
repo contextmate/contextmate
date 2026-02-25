@@ -22,7 +22,12 @@ export class MirrorAdapter extends BaseAdapter {
 
   async import(targetPath: string): Promise<ImportResult> {
     const result: ImportResult = { imported: [], skipped: [], errors: [] };
-    const files = await this.walkDir(targetPath, targetPath);
+    let files = await this.walkDir(targetPath, targetPath);
+
+    if (this.include.length > 0) {
+      const isMatch = picomatch(this.include);
+      files = files.filter((f) => isMatch(f));
+    }
 
     for (const relativeSrc of files) {
       try {

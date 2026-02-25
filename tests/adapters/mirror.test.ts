@@ -99,6 +99,25 @@ describe('MirrorAdapter', () => {
     expect(guideContent).toBe('# Guide');
   });
 
+  it('import() respects include filters', async () => {
+    // Put files in target directory
+    await mkdir(join(targetPath, 'openclaw'), { recursive: true });
+    await writeFile(join(targetPath, 'openclaw', 'MEMORY.md'), '# Memory');
+    await writeFile(join(targetPath, 'unrelated.txt'), 'should be excluded');
+
+    const adapter = new MirrorAdapter({
+      vaultPath,
+      backupsPath,
+      include: ['openclaw/**'],
+    });
+    const result = await adapter.import(targetPath);
+
+    expect(result.imported).toContain(join('openclaw', 'MEMORY.md'));
+    // unrelated.txt should NOT have been imported
+    const importedPaths = [...result.imported, ...result.skipped];
+    expect(importedPaths).not.toContain('unrelated.txt');
+  });
+
   it('import() skips identical content', async () => {
     // Pre-populate vault
     await writeFile(join(vaultPath, 'README.md'), '# Readme');
