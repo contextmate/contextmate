@@ -5,6 +5,9 @@ export interface AdapterOptions {
   vaultPath: string;
   backupsPath: string;
   scanPaths?: string[];
+  extraFiles?: string[];
+  extraGlobs?: string[];
+  include?: string[];
 }
 
 export interface ImportResult {

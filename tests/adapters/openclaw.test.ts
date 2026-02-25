@@ -132,4 +132,67 @@ describe('OpenClawAdapter', () => {
     const content = await readFile(join(workspacePath, 'MEMORY.md'), 'utf-8');
     expect(content).toContain('Test memory content');
   });
+
+  it('import() discovers extraFiles from config', async () => {
+    // Create additional files in workspace
+    await writeFile(join(workspacePath, 'HEARTBEAT.md'), '# Heartbeat\nAgent heartbeat');
+    await writeFile(join(workspacePath, 'PLAYBOOK.md'), '# Playbook\nAgent playbook');
+
+    const extraAdapter = new OpenClawAdapter({
+      vaultPath,
+      backupsPath,
+      extraFiles: ['HEARTBEAT.md', 'PLAYBOOK.md'],
+    });
+    const result = await extraAdapter.import(workspacePath);
+
+    expect(result.errors.length).toBe(0);
+    expect(result.imported).toContain('openclaw/HEARTBEAT.md');
+    expect(result.imported).toContain('openclaw/PLAYBOOK.md');
+
+    const content = await readFile(join(vaultPath, 'openclaw', 'HEARTBEAT.md'), 'utf-8');
+    expect(content).toContain('Agent heartbeat');
+  });
+
+  it('import() discovers files matching extraGlobs', async () => {
+    await mkdir(join(workspacePath, 'agents'), { recursive: true });
+    await writeFile(join(workspacePath, 'agents', 'AGENT1.md'), '# Agent 1');
+    await writeFile(join(workspacePath, 'agents', 'AGENT2.md'), '# Agent 2');
+
+    const extraAdapter = new OpenClawAdapter({
+      vaultPath,
+      backupsPath,
+      extraGlobs: ['agents/*.md'],
+    });
+    const result = await extraAdapter.import(workspacePath);
+
+    expect(result.errors.length).toBe(0);
+    expect(result.imported).toContain('openclaw/agents/AGENT1.md');
+    expect(result.imported).toContain('openclaw/agents/AGENT2.md');
+  });
+
+  it('import() ignores non-existent extraFiles gracefully', async () => {
+    const extraAdapter = new OpenClawAdapter({
+      vaultPath,
+      backupsPath,
+      extraFiles: ['NONEXISTENT.md'],
+    });
+    const result = await extraAdapter.import(workspacePath);
+
+    // Should still import the base files without errors
+    expect(result.errors.length).toBe(0);
+    expect(result.imported.length).toBeGreaterThan(0);
+  });
+
+  it('import() does not duplicate files when extraFiles overlap with defaults', async () => {
+    const extraAdapter = new OpenClawAdapter({
+      vaultPath,
+      backupsPath,
+      extraFiles: ['MEMORY.md'], // Already in the default list
+    });
+    const result = await extraAdapter.import(workspacePath);
+
+    // MEMORY.md should only appear once
+    const memoryCount = result.imported.filter((f) => f === 'openclaw/MEMORY.md').length;
+    expect(memoryCount).toBe(1);
+  });
 });

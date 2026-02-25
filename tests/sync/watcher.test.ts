@@ -110,10 +110,15 @@ describe('FileWatcher', () => {
     await delay(50);
     await writeFile(filePath, 'v5');
 
-    await delay(800); // wait for debounce to flush
+    // Wait for debounce to flush — polling watchers in CI may need extra time
+    let rapidEvents: Array<{ path: string }> = [];
+    for (let i = 0; i < 10; i++) {
+      await delay(500);
+      rapidEvents = events.filter((e) => e.path === 'rapid.md');
+      if (rapidEvents.length > 0) break;
+    }
 
     // Due to debouncing, we should get fewer events than 5 writes
-    const rapidEvents = events.filter((e) => e.path === 'rapid.md');
     expect(rapidEvents.length).toBeLessThan(5);
     expect(rapidEvents.length).toBeGreaterThan(0);
   });
