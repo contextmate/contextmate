@@ -22,10 +22,13 @@ export class SyncEngine {
   private extraPathsManager: ExtraPathsManager | null = null;
   private extraWatchers: FileWatcher[] = [];
 
+  private readonly authToken: string;
+
   constructor(config: ContextMateConfig, vaultKey: Uint8Array, authToken?: string) {
     this.config = config;
     this.vaultKey = vaultKey;
-    this.client = new SyncClient(config.server.url, authToken || config.server.apiKey || '');
+    this.authToken = authToken || config.server.apiKey || '';
+    this.client = new SyncClient(config.server.url, this.authToken);
   }
 
   async start(): Promise<void> {
@@ -40,7 +43,7 @@ export class SyncEngine {
 
     // Connect WebSocket
     const wsUrl = this.config.server.url.replace(/^http/, 'ws');
-    this.ws = new SyncWebSocket(wsUrl, this.config.server.apiKey ?? '');
+    this.ws = new SyncWebSocket(wsUrl, this.authToken);
     this.ws.connect();
 
     // Initial full sync
