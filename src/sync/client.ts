@@ -60,6 +60,18 @@ export class SyncClient {
     return { data, version, encryptedHash };
   }
 
+  async deleteFile(path: string): Promise<void> {
+    const response = await this.fetchWithRetry(
+      `${this.baseUrl}/api/files/${encodeURIComponent(path)}`,
+      { method: 'DELETE' },
+    );
+
+    // 404 is fine — file already gone
+    if (!response.ok && response.status !== 404) {
+      throw new Error(`Delete failed for ${path}: ${response.status} ${response.statusText}`);
+    }
+  }
+
   async listRemoteFiles(): Promise<FileMetadata[]> {
     const response = await this.fetchWithRetry(
       `${this.baseUrl}/api/files`,
