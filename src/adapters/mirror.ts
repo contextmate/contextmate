@@ -1,4 +1,4 @@
-import { readFile, readdir, stat, unlink, copyFile, mkdir } from 'node:fs/promises';
+import { readFile, readdir, stat, unlink, copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { join, relative, dirname } from 'node:path';
 import picomatch from 'picomatch';
 import { BaseAdapter, type AdapterOptions, type ImportResult, type SymlinkResult } from './base.js';
@@ -154,6 +154,53 @@ export class MirrorAdapter extends BaseAdapter {
     }
 
     return result;
+  }
+
+  async syncBack(targetPath: string): Promise<{ synced: string[] }> {
+    const synced: string[] = [];
+    const targetFiles = await this.walkDir(targetPath, targetPath);
+
+    for (const relativePath of targetFiles) {
+      const linkPath = join(targetPath, relativePath);
+
+      // Skip if it's still a valid symlink — no editor breakage
+      if (await this.isSymlink(linkPath)) continue;
+
+      // This is a regular file where a symlink should be.
+      // The editor broke the symlink on save.
+      const vaultFilePath = join(this.vaultPath, relativePath);
+
+      try {
+        const targetContent = await readFile(linkPath);
+
+        // Compare with vault — skip if identical
+        try {
+          const vaultContent = await readFile(vaultFilePath);
+          if (Buffer.compare(targetContent, vaultContent) === 0) {
+            // Content is the same, just re-create the symlink
+            await unlink(linkPath);
+            await this.safeSymlink(vaultFilePath, linkPath);
+            continue;
+          }
+        } catch {
+          // Vault file doesn't exist yet
+        }
+
+        // Copy changed content to vault
+        await mkdir(dirname(vaultFilePath), { recursive: true });
+        await writeFile(vaultFilePath, targetContent);
+
+        // Replace the regular file with a symlink back to vault
+        await unlink(linkPath);
+        await this.safeSymlink(vaultFilePath, linkPath);
+
+        synced.push(relativePath);
+      } catch {
+        // Skip unreadable files
+      }
+    }
+
+    return { synced };
   }
 
   private async discoverVaultFiles(): Promise<string[]> {

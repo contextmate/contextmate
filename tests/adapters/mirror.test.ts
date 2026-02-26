@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { MirrorAdapter } from '../../src/adapters/mirror.js';
 import { tmpdir } from 'node:os';
-import { mkdtemp, rm, writeFile, mkdir, readFile, lstat } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile, mkdir, readFile, lstat, unlink, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 
 let tmpDir: string;
@@ -192,6 +192,64 @@ describe('MirrorAdapter', () => {
     await expect(adapter.createSymlinks(badTarget)).rejects.toThrow(
       'Mirror target cannot be inside the vault',
     );
+  });
+
+  it('syncBack() detects broken symlinks and copies content to vault', async () => {
+    await createMockVault(vaultPath);
+    const adapter = new MirrorAdapter({ vaultPath, backupsPath });
+
+    // Create symlinks
+    await adapter.createSymlinks(targetPath);
+
+    // Simulate editor atomic save: replace symlink with regular file
+    const filePath = join(targetPath, 'openclaw', 'MEMORY.md');
+    await unlink(filePath);
+    await writeFile(filePath, '# Updated Memory\nEdited by user');
+
+    // syncBack should detect the broken symlink and copy to vault
+    const result = await adapter.syncBack(targetPath);
+    expect(result.synced.length).toBe(1);
+    expect(result.synced[0]).toBe(join('openclaw', 'MEMORY.md'));
+
+    // Vault should have the updated content
+    const vaultContent = await readFile(join(vaultPath, 'openclaw', 'MEMORY.md'), 'utf-8');
+    expect(vaultContent).toBe('# Updated Memory\nEdited by user');
+
+    // Target file should be a symlink again
+    const stats = await lstat(filePath);
+    expect(stats.isSymbolicLink()).toBe(true);
+  });
+
+  it('syncBack() re-creates symlink without syncing when content is identical', async () => {
+    await createMockVault(vaultPath);
+    const adapter = new MirrorAdapter({ vaultPath, backupsPath });
+
+    await adapter.createSymlinks(targetPath);
+
+    // Replace symlink with regular file containing same content
+    const filePath = join(targetPath, 'openclaw', 'MEMORY.md');
+    const originalContent = await readFile(filePath, 'utf-8');
+    await unlink(filePath);
+    await writeFile(filePath, originalContent);
+
+    // syncBack should NOT report it as synced (content unchanged)
+    const result = await adapter.syncBack(targetPath);
+    expect(result.synced.length).toBe(0);
+
+    // But the symlink should be restored
+    const stats = await lstat(filePath);
+    expect(stats.isSymbolicLink()).toBe(true);
+  });
+
+  it('syncBack() ignores files that are still valid symlinks', async () => {
+    await createMockVault(vaultPath);
+    const adapter = new MirrorAdapter({ vaultPath, backupsPath });
+
+    await adapter.createSymlinks(targetPath);
+
+    // No changes — all symlinks intact
+    const result = await adapter.syncBack(targetPath);
+    expect(result.synced.length).toBe(0);
   });
 
   it('throws error when vault is inside target', async () => {

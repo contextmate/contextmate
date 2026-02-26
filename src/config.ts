@@ -18,6 +18,7 @@ export interface ContextMateConfig {
     pollIntervalMs: number;
     debounceMs: number;
     maxRetries: number;
+    extraPaths: string[];
   };
   adapters: {
     openclaw: {
@@ -71,6 +72,7 @@ export function getDefaultConfig(): ContextMateConfig {
       pollIntervalMs: 60000,
       debounceMs: 500,
       maxRetries: 3,
+      extraPaths: [],
     },
     adapters: {
       openclaw: {

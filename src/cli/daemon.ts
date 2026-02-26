@@ -10,6 +10,7 @@ import { loadConfig, getConfigPath } from '../config.js';
 import { getPidFilePath, getBackupsPath } from '../utils/paths.js';
 import { deriveMasterKey, deriveVaultKey, decryptString } from '../crypto/index.js';
 import { MirrorAdapter } from '../adapters/mirror.js';
+import { FileWatcher } from '../sync/watcher.js';
 
 async function isInitialized(): Promise<boolean> {
   try {
@@ -126,8 +127,9 @@ const startCommand = new Command('start')
       const engine = new SyncEngine(config, vaultKey, authToken);
       await engine.start();
 
-      // Start mirror symlink refresh if enabled
+      // Start mirror sync if enabled
       let mirrorInterval: ReturnType<typeof setInterval> | null = null;
+      let mirrorWatcher: FileWatcher | null = null;
       if (config.adapters.mirror.enabled && config.adapters.mirror.targetPath) {
         const mirrorAdapter = new MirrorAdapter({
           vaultPath: config.vault.path,
@@ -136,15 +138,37 @@ const startCommand = new Command('start')
         });
         const targetPath = config.adapters.mirror.targetPath;
 
-        // Initial refresh
+        // Initial sync back + refresh
+        const backed = await mirrorAdapter.syncBack(targetPath);
+        if (backed.synced.length > 0) {
+          console.log(chalk.dim(`  Mirror: ${backed.synced.length} file${backed.synced.length === 1 ? '' : 's'} synced back`));
+        }
         const initial = await mirrorAdapter.refreshSymlinks(targetPath);
         if (initial.created.length > 0) {
           console.log(chalk.dim(`  Mirror: ${initial.created.length} new symlinks`));
         }
 
-        // Periodic refresh
+        // Watch the mirror target for real-time detection of broken symlinks
+        mirrorWatcher = new FileWatcher(targetPath, config.sync.debounceMs);
+        mirrorWatcher.start();
+
+        const handleMirrorChange = async () => {
+          try {
+            const result = await mirrorAdapter.syncBack(targetPath);
+            if (result.synced.length > 0) {
+              console.log(chalk.dim(`  Mirror: ${result.synced.length} file${result.synced.length === 1 ? '' : 's'} synced back`));
+            }
+          } catch {
+            // Non-critical
+          }
+        };
+        mirrorWatcher.on('file-changed', () => void handleMirrorChange());
+        mirrorWatcher.on('file-added', () => void handleMirrorChange());
+
+        // Periodic refresh for new vault files
         mirrorInterval = setInterval(async () => {
           try {
+            await mirrorAdapter.syncBack(targetPath);
             await mirrorAdapter.refreshSymlinks(targetPath);
           } catch {
             // Non-critical
@@ -156,6 +180,7 @@ const startCommand = new Command('start')
       const shutdown = async () => {
         console.log(chalk.dim('\nStopping daemon...'));
         if (mirrorInterval) clearInterval(mirrorInterval);
+        if (mirrorWatcher) await mirrorWatcher.stop();
         await engine.stop();
         try {
           await unlink(pidFile);

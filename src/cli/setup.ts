@@ -611,6 +611,20 @@ export const setupCommand = new Command('setup')
         console.log('');
       }
 
+      // ─── Extra paths ───
+      console.log(chalk.bold('Extra file paths'));
+      console.log(chalk.dim('  Sync arbitrary files from anywhere on disk.'));
+      console.log(chalk.dim('  Use glob patterns (e.g. ~/notes/**/*.md). Files appear under custom/ in your vault.'));
+      console.log('');
+
+      const extraPathsInput = await ask(chalk.bold('  Paths to sync (comma-separated globs, or Enter to skip): '));
+      const trimmedExtra = extraPathsInput.trim();
+      if (trimmedExtra) {
+        config!.sync.extraPaths = trimmedExtra.split(',').map((s: string) => s.trim());
+        console.log(chalk.green(`  ✓ ${config!.sync.extraPaths.length} extra path pattern${config!.sync.extraPaths.length === 1 ? '' : 's'} added`));
+      }
+      console.log('');
+
       // Save config
       await saveConfig(config!);
 
@@ -689,10 +703,12 @@ export const setupCommand = new Command('setup')
       const engine = new SyncEngine(config!, vaultKey!, token!);
       await engine.start();
 
-      // Start mirror symlink refresh if enabled
+      // Start mirror sync if enabled
       let mirrorInterval: ReturnType<typeof setInterval> | null = null;
+      let mirrorWatcher: import('../sync/watcher.js').FileWatcher | null = null;
       if (config!.adapters.mirror.enabled && config!.adapters.mirror.targetPath) {
         const { MirrorAdapter } = await import('../adapters/mirror.js');
+        const { FileWatcher } = await import('../sync/watcher.js');
         const mirrorAdapter = new MirrorAdapter({
           vaultPath: config!.vault.path,
           backupsPath: getBackupsPath(),
@@ -700,13 +716,29 @@ export const setupCommand = new Command('setup')
         });
         const targetPath = config!.adapters.mirror.targetPath;
 
+        await mirrorAdapter.syncBack(targetPath);
         const initial = await mirrorAdapter.refreshSymlinks(targetPath);
         if (initial.created.length > 0) {
           console.log(chalk.dim(`  Mirror: ${initial.created.length} new symlinks`));
         }
 
+        // Watch mirror target for broken symlinks (editor atomic saves)
+        mirrorWatcher = new FileWatcher(targetPath, config!.sync.debounceMs);
+        mirrorWatcher.start();
+
+        const handleMirrorChange = async () => {
+          try {
+            await mirrorAdapter.syncBack(targetPath);
+          } catch {
+            // Non-critical
+          }
+        };
+        mirrorWatcher.on('file-changed', () => void handleMirrorChange());
+        mirrorWatcher.on('file-added', () => void handleMirrorChange());
+
         mirrorInterval = setInterval(async () => {
           try {
+            await mirrorAdapter.syncBack(targetPath);
             await mirrorAdapter.refreshSymlinks(targetPath);
           } catch {
             // Non-critical
@@ -717,6 +749,7 @@ export const setupCommand = new Command('setup')
       const shutdown = async () => {
         console.log(chalk.dim('\nStopping daemon...'));
         if (mirrorInterval) clearInterval(mirrorInterval);
+        if (mirrorWatcher) await mirrorWatcher.stop();
         await engine.stop();
         try { await unlink(pidFile); } catch { /* Already removed */ }
         console.log(chalk.green('Daemon stopped.'));

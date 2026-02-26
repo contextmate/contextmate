@@ -5,6 +5,7 @@ import { FileWatcher } from './watcher.js';
 import { SyncStateDB } from './state.js';
 import { SyncClient, ConflictError } from './client.js';
 import { SyncWebSocket } from './websocket.js';
+import { ExtraPathsManager } from './extra-paths.js';
 import { encryptFile, decryptFile, hashContent, deriveKeyForPath } from '../crypto/index.js';
 import type { ContextMateConfig } from '../config.js';
 import type { SyncResult } from '../types.js';
@@ -18,6 +19,8 @@ export class SyncEngine {
   private readonly vaultKey: Uint8Array;
   private readonly config: ContextMateConfig;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private extraPathsManager: ExtraPathsManager | null = null;
+  private extraWatchers: FileWatcher[] = [];
 
   constructor(config: ContextMateConfig, vaultKey: Uint8Array, authToken?: string) {
     this.config = config;
@@ -62,6 +65,33 @@ export class SyncEngine {
       void this.handleRemoteDelete(event.path);
     });
 
+    // Set up extra paths if configured
+    if (this.config.sync.extraPaths.length > 0) {
+      this.extraPathsManager = new ExtraPathsManager(
+        this.config.sync.extraPaths,
+        this.config.vault.path,
+      );
+
+      // Initial import
+      await this.extraPathsManager.importToVault();
+
+      // Watch each base directory
+      const watchPaths = this.extraPathsManager.getWatchPaths();
+      for (const watchPath of watchPaths) {
+        const w = new FileWatcher(watchPath, this.config.sync.debounceMs);
+        w.start();
+
+        w.on('file-changed', (event: { path: string }) => {
+          void this.handleExtraPathChange(watchPath, event.path);
+        });
+        w.on('file-added', (event: { path: string }) => {
+          void this.handleExtraPathChange(watchPath, event.path);
+        });
+
+        this.extraWatchers.push(w);
+      }
+    }
+
     // Start periodic poll
     this.pollTimer = setInterval(() => {
       void this.syncAll();
@@ -73,6 +103,10 @@ export class SyncEngine {
       clearInterval(this.pollTimer);
       this.pollTimer = null;
     }
+    for (const w of this.extraWatchers) {
+      await w.stop();
+    }
+    this.extraWatchers = [];
     if (this.watcher) {
       await this.watcher.stop();
       this.watcher = null;
@@ -147,6 +181,33 @@ export class SyncEngine {
     }
   }
 
+  private async handleExtraPathChange(basePath: string, relativePath: string): Promise<void> {
+    if (!this.extraPathsManager) return;
+
+    try {
+      const absolutePath = join(basePath, relativePath);
+      const vaultRelative = this.extraPathsManager.sourceToVaultPath(absolutePath);
+      if (!vaultRelative) return;
+
+      const content = await readFile(absolutePath);
+      const vaultDest = join(this.config.vault.path, vaultRelative);
+
+      // Skip if content is identical (avoid infinite loop)
+      try {
+        const existing = await readFile(vaultDest);
+        if (Buffer.compare(content, existing) === 0) return;
+      } catch {
+        // Vault file doesn't exist yet
+      }
+
+      await mkdir(dirname(vaultDest), { recursive: true });
+      await writeFile(vaultDest, content);
+      // The vault watcher will pick this up and trigger handleLocalChange -> upload
+    } catch {
+      // Source unreadable, skip
+    }
+  }
+
   async handleRemoteUpdate(path: string, version: number): Promise<void> {
     if (!this.stateDb) return;
 
@@ -179,6 +240,15 @@ export class SyncEngine {
       // Write remote version to vault
       await mkdir(dirname(absolutePath), { recursive: true });
       await writeFile(absolutePath, decrypted);
+
+      // If this is an extra-path file, write back to original source
+      if (this.extraPathsManager && path.startsWith('custom/')) {
+        try {
+          await this.extraPathsManager.writeBackToSource(path, decrypted);
+        } catch {
+          // Source location may not exist on this device
+        }
+      }
 
       // Update state db
       const contentHash = hashContent(decrypted);
@@ -240,6 +310,11 @@ export class SyncEngine {
       const localFiles = this.stateDb.getAllFiles();
       const localFileMap = new Map(localFiles.map((f) => [f.path, f]));
       const remoteFileMap = new Map(remoteFiles.map((f) => [f.path, f]));
+
+      // Re-import extra paths to catch new files
+      if (this.extraPathsManager) {
+        await this.extraPathsManager.importToVault();
+      }
 
       // Discover untracked local files and upload them
       const localDiskFiles = await this.discoverLocalFiles(this.config.vault.path, this.config.vault.path);
@@ -348,6 +423,15 @@ export class SyncEngine {
 
           await mkdir(dirname(absolutePath), { recursive: true });
           await writeFile(absolutePath, decrypted);
+
+          // If this is an extra-path file, write back to original source
+          if (this.extraPathsManager && remote.path.startsWith('custom/')) {
+            try {
+              await this.extraPathsManager.writeBackToSource(remote.path, decrypted);
+            } catch {
+              // Source location may not exist on this device
+            }
+          }
 
           const contentHash = hashContent(decrypted);
           this.stateDb.upsertFile({
