@@ -120,11 +120,28 @@ export function FileViewer({ filePath, onDirtyChange }: FileViewerProps) {
       const hashBuffer = await crypto.subtle.digest('SHA-256', encrypted as BufferSource);
       const hash = bytesToHex(new Uint8Array(hashBuffer));
 
-      await apiClient.uploadFile(filePath, encrypted.buffer as ArrayBuffer, version + 1, hash);
+      try {
+        await apiClient.uploadFile(filePath, encrypted.buffer as ArrayBuffer, version, hash);
+        setContent(editContent);
+        setVersion(version + 1);
+        setEditing(false);
+      } catch (err) {
+        // On version conflict, reload latest version and retry once
+        if (err instanceof Error && err.message.includes('modified elsewhere')) {
+          const { version: latestVersion } = await apiClient.downloadFile(filePath);
+          // Retry save with latest version
+          const retryEncrypted = await encryptData(plaintext, fileKey);
+          const retryHashBuffer = await crypto.subtle.digest('SHA-256', retryEncrypted as BufferSource);
+          const retryHash = bytesToHex(new Uint8Array(retryHashBuffer));
+          await apiClient.uploadFile(filePath, retryEncrypted.buffer as ArrayBuffer, latestVersion, retryHash);
 
-      setContent(editContent);
-      setVersion(version + 1);
-      setEditing(false);
+          setContent(editContent);
+          setVersion(latestVersion + 1);
+          setEditing(false);
+        } else {
+          throw err;
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save file');
     } finally {
@@ -140,19 +157,9 @@ export function FileViewer({ filePath, onDirtyChange }: FileViewerProps) {
     );
   }
 
-  if (error) {
-    return (
-      <div className="file-viewer">
-        <div className="file-viewer-header">
-          <span className="file-viewer-path">{filePath}</span>
-        </div>
-        <div className="file-viewer-error">{error}</div>
-      </div>
-    );
-  }
-
   return (
     <div className="file-viewer">
+      {error && <div className="file-viewer-error">{error}</div>}
       <div className="file-viewer-header">
         <span className="file-viewer-path">{filePath}</span>
         <span className="file-viewer-meta">v{version}</span>
