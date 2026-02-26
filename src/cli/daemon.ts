@@ -10,6 +10,8 @@ import { loadConfig, getConfigPath } from '../config.js';
 import { getPidFilePath, getBackupsPath } from '../utils/paths.js';
 import { deriveMasterKey, deriveVaultKey, decryptString } from '../crypto/index.js';
 import { MirrorAdapter } from '../adapters/mirror.js';
+import { OpenClawAdapter } from '../adapters/openclaw.js';
+import { ClaudeCodeAdapter } from '../adapters/claude.js';
 import { FileWatcher } from '../sync/watcher.js';
 
 async function isInitialized(): Promise<boolean> {
@@ -176,11 +178,102 @@ const startCommand = new Command('start')
         }, config.sync.pollIntervalMs);
       }
 
+      // Start OpenClaw workspace watcher if enabled
+      let openclawInterval: ReturnType<typeof setInterval> | null = null;
+      let openclawWatcher: FileWatcher | null = null;
+      if (config.adapters.openclaw.enabled && config.adapters.openclaw.workspacePath) {
+        const openclawAdapter = new OpenClawAdapter({
+          vaultPath: config.vault.path,
+          backupsPath: getBackupsPath(),
+          extraFiles: config.adapters.openclaw.extraFiles,
+          extraGlobs: config.adapters.openclaw.extraGlobs,
+        });
+        const workspacePath = config.adapters.openclaw.workspacePath;
+
+        // Initial sync back
+        const backed = await openclawAdapter.syncBack(workspacePath);
+        if (backed.synced.length > 0) {
+          console.log(chalk.dim(`  OpenClaw: ${backed.synced.length} file${backed.synced.length === 1 ? '' : 's'} synced back`));
+        }
+
+        // Watch OpenClaw workspace for broken symlinks
+        openclawWatcher = new FileWatcher(workspacePath, config.sync.debounceMs);
+        openclawWatcher.start();
+
+        const handleOpenClawChange = async () => {
+          try {
+            const result = await openclawAdapter.syncBack(workspacePath);
+            if (result.synced.length > 0) {
+              console.log(chalk.dim(`  OpenClaw: ${result.synced.length} file${result.synced.length === 1 ? '' : 's'} synced back`));
+            }
+          } catch {
+            // Non-critical
+          }
+        };
+        openclawWatcher.on('file-changed', () => void handleOpenClawChange());
+        openclawWatcher.on('file-added', () => void handleOpenClawChange());
+
+        openclawInterval = setInterval(async () => {
+          try {
+            await openclawAdapter.syncBack(workspacePath);
+          } catch {
+            // Non-critical
+          }
+        }, config.sync.pollIntervalMs);
+      }
+
+      // Start Claude workspace watcher if enabled
+      let claudeInterval: ReturnType<typeof setInterval> | null = null;
+      let claudeWatcher: FileWatcher | null = null;
+      if (config.adapters.claude.enabled && config.adapters.claude.claudeDir) {
+        const claudeAdapter = new ClaudeCodeAdapter({
+          vaultPath: config.vault.path,
+          backupsPath: getBackupsPath(),
+          scanPaths: config.adapters.claude.scanPaths,
+        });
+        const claudeDir = config.adapters.claude.claudeDir;
+
+        // Initial sync back
+        const backed = await claudeAdapter.syncBack(claudeDir);
+        if (backed.synced.length > 0) {
+          console.log(chalk.dim(`  Claude: ${backed.synced.length} file${backed.synced.length === 1 ? '' : 's'} synced back`));
+        }
+
+        // Watch Claude directory for broken symlinks
+        claudeWatcher = new FileWatcher(claudeDir, config.sync.debounceMs);
+        claudeWatcher.start();
+
+        const handleClaudeChange = async () => {
+          try {
+            const result = await claudeAdapter.syncBack(claudeDir);
+            if (result.synced.length > 0) {
+              console.log(chalk.dim(`  Claude: ${result.synced.length} file${result.synced.length === 1 ? '' : 's'} synced back`));
+            }
+          } catch {
+            // Non-critical
+          }
+        };
+        claudeWatcher.on('file-changed', () => void handleClaudeChange());
+        claudeWatcher.on('file-added', () => void handleClaudeChange());
+
+        claudeInterval = setInterval(async () => {
+          try {
+            await claudeAdapter.syncBack(claudeDir);
+          } catch {
+            // Non-critical
+          }
+        }, config.sync.pollIntervalMs);
+      }
+
       // Handle graceful shutdown
       const shutdown = async () => {
         console.log(chalk.dim('\nStopping daemon...'));
         if (mirrorInterval) clearInterval(mirrorInterval);
         if (mirrorWatcher) await mirrorWatcher.stop();
+        if (openclawInterval) clearInterval(openclawInterval);
+        if (openclawWatcher) await openclawWatcher.stop();
+        if (claudeInterval) clearInterval(claudeInterval);
+        if (claudeWatcher) await claudeWatcher.stop();
         await engine.stop();
         try {
           await unlink(pidFile);

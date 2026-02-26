@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { OpenClawAdapter } from '../../src/adapters/openclaw.js';
 import { tmpdir } from 'node:os';
-import { mkdtemp, rm, writeFile, mkdir, readFile, lstat } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile, mkdir, readFile, lstat, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 
 let tmpDir: string;
@@ -194,5 +194,61 @@ describe('OpenClawAdapter', () => {
     // MEMORY.md should only appear once
     const memoryCount = result.imported.filter((f) => f === 'openclaw/MEMORY.md').length;
     expect(memoryCount).toBe(1);
+  });
+
+  describe('syncBack()', () => {
+    it('detects broken symlinks and syncs content back to vault', async () => {
+      await adapter.import(workspacePath);
+      await adapter.createSymlinks(workspacePath);
+
+      // Verify MEMORY.md is a symlink
+      let stats = await lstat(join(workspacePath, 'MEMORY.md'));
+      expect(stats.isSymbolicLink()).toBe(true);
+
+      // Simulate editor atomic save: delete symlink and write regular file
+      await unlink(join(workspacePath, 'MEMORY.md'));
+      await writeFile(join(workspacePath, 'MEMORY.md'), '# Memory\nUpdated by editor');
+
+      stats = await lstat(join(workspacePath, 'MEMORY.md'));
+      expect(stats.isSymbolicLink()).toBe(false);
+
+      const result = await adapter.syncBack(workspacePath);
+      expect(result.synced.length).toBeGreaterThan(0);
+      expect(result.synced).toContain('openclaw/MEMORY.md');
+
+      // Vault should have new content
+      const vaultContent = await readFile(join(vaultPath, 'openclaw', 'MEMORY.md'), 'utf-8');
+      expect(vaultContent).toContain('Updated by editor');
+
+      // File should be a symlink again
+      stats = await lstat(join(workspacePath, 'MEMORY.md'));
+      expect(stats.isSymbolicLink()).toBe(true);
+    });
+
+    it('re-creates symlink when content is identical', async () => {
+      await adapter.import(workspacePath);
+      await adapter.createSymlinks(workspacePath);
+
+      // Simulate editor atomic save with same content
+      const originalContent = await readFile(join(workspacePath, 'MEMORY.md'), 'utf-8');
+      await unlink(join(workspacePath, 'MEMORY.md'));
+      await writeFile(join(workspacePath, 'MEMORY.md'), originalContent);
+
+      const result = await adapter.syncBack(workspacePath);
+      // Should not report as synced (content identical) but symlink should be restored
+      expect(result.synced.length).toBe(0);
+
+      const stats = await lstat(join(workspacePath, 'MEMORY.md'));
+      expect(stats.isSymbolicLink()).toBe(true);
+    });
+
+    it('skips files that are still valid symlinks', async () => {
+      await adapter.import(workspacePath);
+      await adapter.createSymlinks(workspacePath);
+
+      // All files are symlinks, nothing to sync back
+      const result = await adapter.syncBack(workspacePath);
+      expect(result.synced.length).toBe(0);
+    });
   });
 });

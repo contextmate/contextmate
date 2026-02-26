@@ -1,5 +1,5 @@
-import { readFile, readdir, access, stat, unlink, copyFile, mkdir } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { readFile, readdir, access, stat, unlink, copyFile, mkdir, writeFile } from 'node:fs/promises';
+import { join, relative, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { BaseAdapter, type ImportResult, type SymlinkResult } from './base.js';
 
@@ -153,6 +153,175 @@ export class ClaudeCodeAdapter extends BaseAdapter {
 
     // 4. Remove project memory symlinks
     await this.removeProjectMemorySymlinks(claudeDir);
+  }
+
+  async syncBack(claudeDir: string): Promise<{ synced: string[] }> {
+    const synced: string[] = [];
+
+    const skillsPath = join(homedir(), '.agents', 'skills');
+
+    // 1. Skills in ~/.agents/skills/ and ~/.claude/skills/
+    await this.syncBackSkills(skillsPath, synced);
+    await this.syncBackSkills(join(claudeDir, 'skills'), synced);
+
+    // 2. Rules: ~/.claude/rules/*.md
+    await this.syncBackFiles(
+      join(claudeDir, 'rules'),
+      join('claude', 'rules'),
+      synced,
+    );
+
+    // 3. CLAUDE.md
+    await this.syncBackSingleFile(
+      join(claudeDir, 'CLAUDE.md'),
+      join('claude', 'CLAUDE.md'),
+      synced,
+    );
+
+    // 4. Project memories: ~/.claude/projects/*/memory/*.md
+    await this.syncBackProjectMemories(claudeDir, synced);
+
+    return { synced };
+  }
+
+  private async syncBackSkills(skillsPath: string, synced: string[]): Promise<void> {
+    const vaultSkillsDir = join(this.vaultPath, 'skills');
+    let skillNames: string[];
+    try {
+      skillNames = await readdir(vaultSkillsDir);
+    } catch {
+      return;
+    }
+
+    for (const name of skillNames) {
+      const vaultSkillDir = join(vaultSkillsDir, name);
+      try {
+        const s = await stat(vaultSkillDir);
+        if (!s.isDirectory()) continue;
+      } catch {
+        continue;
+      }
+
+      const linkPath = join(skillsPath, name);
+
+      // For skill directories, check if the directory is a symlink
+      if (await this.isSymlink(linkPath)) continue;
+
+      // It's a real directory — check files inside
+      const skillFile = join(linkPath, 'SKILL.md');
+      const vaultSkillFile = join(vaultSkillDir, 'SKILL.md');
+
+      try {
+        const localContent = await readFile(skillFile);
+        try {
+          const vaultContent = await readFile(vaultSkillFile);
+          if (Buffer.compare(localContent, vaultContent) === 0) {
+            continue;
+          }
+        } catch {
+          // Vault file doesn't exist
+        }
+
+        await mkdir(dirname(vaultSkillFile), { recursive: true });
+        await writeFile(vaultSkillFile, localContent);
+        synced.push(join('skills', name, 'SKILL.md'));
+      } catch {
+        // Skill file not readable
+      }
+    }
+  }
+
+  private async syncBackFiles(
+    sourceDir: string,
+    vaultPrefix: string,
+    synced: string[],
+  ): Promise<void> {
+    let names: string[];
+    try {
+      names = await readdir(sourceDir);
+    } catch {
+      return;
+    }
+
+    for (const name of names) {
+      if (!name.endsWith('.md')) continue;
+      const filePath = join(sourceDir, name);
+
+      if (await this.isSymlink(filePath)) continue;
+
+      const vaultRelative = join(vaultPrefix, name);
+      const vaultFilePath = join(this.vaultPath, vaultRelative);
+
+      try {
+        const localContent = await readFile(filePath);
+        try {
+          const vaultContent = await readFile(vaultFilePath);
+          if (Buffer.compare(localContent, vaultContent) === 0) {
+            await unlink(filePath);
+            await this.safeSymlink(vaultFilePath, filePath);
+            continue;
+          }
+        } catch {
+          // Vault file doesn't exist
+        }
+
+        await mkdir(dirname(vaultFilePath), { recursive: true });
+        await writeFile(vaultFilePath, localContent);
+        await unlink(filePath);
+        await this.safeSymlink(vaultFilePath, filePath);
+        synced.push(vaultRelative);
+      } catch {
+        // Skip unreadable files
+      }
+    }
+  }
+
+  private async syncBackSingleFile(
+    filePath: string,
+    vaultRelative: string,
+    synced: string[],
+  ): Promise<void> {
+    if (await this.isSymlink(filePath)) return;
+
+    const vaultFilePath = join(this.vaultPath, vaultRelative);
+
+    try {
+      const localContent = await readFile(filePath);
+      try {
+        const vaultContent = await readFile(vaultFilePath);
+        if (Buffer.compare(localContent, vaultContent) === 0) {
+          await unlink(filePath);
+          await this.safeSymlink(vaultFilePath, filePath);
+          return;
+        }
+      } catch {
+        // Vault file doesn't exist
+      }
+
+      await mkdir(dirname(vaultFilePath), { recursive: true });
+      await writeFile(vaultFilePath, localContent);
+      await unlink(filePath);
+      await this.safeSymlink(vaultFilePath, filePath);
+      synced.push(vaultRelative);
+    } catch {
+      // File not readable or doesn't exist
+    }
+  }
+
+  private async syncBackProjectMemories(claudeDir: string, synced: string[]): Promise<void> {
+    const vaultProjectsDir = join(this.vaultPath, 'claude', 'projects');
+    let projectNames: string[];
+    try {
+      projectNames = await readdir(vaultProjectsDir);
+    } catch {
+      return;
+    }
+
+    for (const projectName of projectNames) {
+      const targetMemoryDir = join(claudeDir, 'projects', projectName, 'memory');
+      const vaultPrefix = join('claude', 'projects', projectName, 'memory');
+      await this.syncBackFiles(targetMemoryDir, vaultPrefix, synced);
+    }
   }
 
   // --- Import helpers ---

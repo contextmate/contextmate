@@ -1,4 +1,4 @@
-import { readFile, readdir, access, stat, unlink, copyFile, mkdir } from 'node:fs/promises';
+import { readFile, readdir, access, stat, unlink, copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { join, relative, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import picomatch from 'picomatch';
@@ -138,6 +138,52 @@ export class OpenClawAdapter extends BaseAdapter {
         }
       }
     }
+  }
+
+  async syncBack(workspacePath: string): Promise<{ synced: string[] }> {
+    const synced: string[] = [];
+    const filesToCheck = await this.discoverFiles(workspacePath);
+
+    for (const filePath of filesToCheck) {
+      // Skip if it's still a valid symlink
+      if (await this.isSymlink(filePath)) continue;
+
+      // Regular file where a symlink should be — editor/tool broke the symlink
+      const relativeSrc = relative(workspacePath, filePath);
+      const vaultRelative = join('openclaw', relativeSrc);
+      const vaultFilePath = join(this.vaultPath, vaultRelative);
+
+      try {
+        const workspaceContent = await readFile(filePath);
+
+        // Compare with vault — skip if identical
+        try {
+          const vaultContent = await readFile(vaultFilePath);
+          if (Buffer.compare(workspaceContent, vaultContent) === 0) {
+            // Content is the same, just re-create the symlink
+            await unlink(filePath);
+            await this.safeSymlink(vaultFilePath, filePath);
+            continue;
+          }
+        } catch {
+          // Vault file doesn't exist yet
+        }
+
+        // Copy changed content to vault
+        await mkdir(dirname(vaultFilePath), { recursive: true });
+        await writeFile(vaultFilePath, workspaceContent);
+
+        // Replace the regular file with a symlink back to vault
+        await unlink(filePath);
+        await this.safeSymlink(vaultFilePath, filePath);
+
+        synced.push(vaultRelative);
+      } catch {
+        // Skip unreadable files
+      }
+    }
+
+    return { synced };
   }
 
   private async discoverFiles(workspacePath: string): Promise<string[]> {

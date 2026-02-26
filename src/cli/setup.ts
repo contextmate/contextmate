@@ -746,10 +746,89 @@ export const setupCommand = new Command('setup')
         }, config!.sync.pollIntervalMs);
       }
 
+      // Start OpenClaw workspace watcher if enabled
+      let openclawInterval: ReturnType<typeof setInterval> | null = null;
+      let openclawWatcher: import('../sync/watcher.js').FileWatcher | null = null;
+      if (config!.adapters.openclaw.enabled && config!.adapters.openclaw.workspacePath) {
+        const { OpenClawAdapter } = await import('../adapters/openclaw.js');
+        const { FileWatcher } = await import('../sync/watcher.js');
+        const openclawAdapter = new OpenClawAdapter({
+          vaultPath: config!.vault.path,
+          backupsPath: getBackupsPath(),
+          extraFiles: config!.adapters.openclaw.extraFiles,
+          extraGlobs: config!.adapters.openclaw.extraGlobs,
+        });
+        const workspacePath = config!.adapters.openclaw.workspacePath;
+
+        await openclawAdapter.syncBack(workspacePath);
+
+        openclawWatcher = new FileWatcher(workspacePath, config!.sync.debounceMs);
+        openclawWatcher.start();
+
+        const handleOpenClawChange = async () => {
+          try {
+            await openclawAdapter.syncBack(workspacePath);
+          } catch {
+            // Non-critical
+          }
+        };
+        openclawWatcher.on('file-changed', () => void handleOpenClawChange());
+        openclawWatcher.on('file-added', () => void handleOpenClawChange());
+
+        openclawInterval = setInterval(async () => {
+          try {
+            await openclawAdapter.syncBack(workspacePath);
+          } catch {
+            // Non-critical
+          }
+        }, config!.sync.pollIntervalMs);
+      }
+
+      // Start Claude workspace watcher if enabled
+      let claudeInterval: ReturnType<typeof setInterval> | null = null;
+      let claudeWatcher: import('../sync/watcher.js').FileWatcher | null = null;
+      if (config!.adapters.claude.enabled && config!.adapters.claude.claudeDir) {
+        const { ClaudeCodeAdapter } = await import('../adapters/claude.js');
+        const { FileWatcher } = await import('../sync/watcher.js');
+        const claudeAdapter = new ClaudeCodeAdapter({
+          vaultPath: config!.vault.path,
+          backupsPath: getBackupsPath(),
+          scanPaths: config!.adapters.claude.scanPaths,
+        });
+        const claudeDir = config!.adapters.claude.claudeDir;
+
+        await claudeAdapter.syncBack(claudeDir);
+
+        claudeWatcher = new FileWatcher(claudeDir, config!.sync.debounceMs);
+        claudeWatcher.start();
+
+        const handleClaudeChange = async () => {
+          try {
+            await claudeAdapter.syncBack(claudeDir);
+          } catch {
+            // Non-critical
+          }
+        };
+        claudeWatcher.on('file-changed', () => void handleClaudeChange());
+        claudeWatcher.on('file-added', () => void handleClaudeChange());
+
+        claudeInterval = setInterval(async () => {
+          try {
+            await claudeAdapter.syncBack(claudeDir);
+          } catch {
+            // Non-critical
+          }
+        }, config!.sync.pollIntervalMs);
+      }
+
       const shutdown = async () => {
         console.log(chalk.dim('\nStopping daemon...'));
         if (mirrorInterval) clearInterval(mirrorInterval);
         if (mirrorWatcher) await mirrorWatcher.stop();
+        if (openclawInterval) clearInterval(openclawInterval);
+        if (openclawWatcher) await openclawWatcher.stop();
+        if (claudeInterval) clearInterval(claudeInterval);
+        if (claudeWatcher) await claudeWatcher.stop();
         await engine.stop();
         try { await unlink(pidFile); } catch { /* Already removed */ }
         console.log(chalk.green('Daemon stopped.'));

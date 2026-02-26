@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { ClaudeCodeAdapter } from '../../src/adapters/claude.js';
 import { tmpdir } from 'node:os';
-import { mkdtemp, rm, writeFile, mkdir, readFile, lstat, readdir } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile, mkdir, readFile, lstat, readdir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 
 let tmpDir: string;
@@ -306,6 +306,101 @@ describe('ClaudeCodeAdapter', () => {
 
       const content = await readFile(memPath, 'utf-8');
       expect(content).toContain('Key architecture decisions');
+    });
+  });
+
+  describe('syncBack()', () => {
+    it('detects broken rule symlinks and syncs content back to vault', async () => {
+      await adapter.import(claudeDir);
+      await adapter.createSymlinks(claudeDir);
+
+      const rulePath = join(claudeDir, 'rules', 'coding-standards.md');
+      let stats = await lstat(rulePath);
+      expect(stats.isSymbolicLink()).toBe(true);
+
+      // Simulate editor atomic save: delete symlink and write regular file
+      await unlink(rulePath);
+      await writeFile(rulePath, '# Coding Standards\nUpdated standards');
+
+      stats = await lstat(rulePath);
+      expect(stats.isSymbolicLink()).toBe(false);
+
+      const result = await adapter.syncBack(claudeDir);
+      expect(result.synced).toContain('claude/rules/coding-standards.md');
+
+      // Vault should have new content
+      const vaultContent = await readFile(
+        join(vaultPath, 'claude', 'rules', 'coding-standards.md'),
+        'utf-8',
+      );
+      expect(vaultContent).toContain('Updated standards');
+
+      // File should be a symlink again
+      stats = await lstat(rulePath);
+      expect(stats.isSymbolicLink()).toBe(true);
+    });
+
+    it('detects broken CLAUDE.md symlink and syncs back', async () => {
+      await adapter.import(claudeDir);
+      await adapter.createSymlinks(claudeDir);
+
+      const claudeMdPath = join(claudeDir, 'CLAUDE.md');
+      await unlink(claudeMdPath);
+      await writeFile(claudeMdPath, '# Updated CLAUDE.md\nNew instructions');
+
+      const result = await adapter.syncBack(claudeDir);
+      expect(result.synced).toContain('claude/CLAUDE.md');
+
+      const vaultContent = await readFile(join(vaultPath, 'claude', 'CLAUDE.md'), 'utf-8');
+      expect(vaultContent).toContain('New instructions');
+
+      const stats = await lstat(claudeMdPath);
+      expect(stats.isSymbolicLink()).toBe(true);
+    });
+
+    it('detects broken project memory symlinks and syncs back', async () => {
+      await adapter.import(claudeDir);
+      await adapter.createSymlinks(claudeDir);
+
+      const memPath = join(claudeDir, 'projects', 'my-project', 'memory', 'MEMORY.md');
+      await unlink(memPath);
+      await writeFile(memPath, '# Project Memory\nUpdated architecture notes');
+
+      const result = await adapter.syncBack(claudeDir);
+      expect(result.synced).toContain('claude/projects/my-project/memory/MEMORY.md');
+
+      const vaultContent = await readFile(
+        join(vaultPath, 'claude', 'projects', 'my-project', 'memory', 'MEMORY.md'),
+        'utf-8',
+      );
+      expect(vaultContent).toContain('Updated architecture notes');
+
+      const stats = await lstat(memPath);
+      expect(stats.isSymbolicLink()).toBe(true);
+    });
+
+    it('skips files that are still valid symlinks', async () => {
+      await adapter.import(claudeDir);
+      await adapter.createSymlinks(claudeDir);
+
+      const result = await adapter.syncBack(claudeDir);
+      expect(result.synced.length).toBe(0);
+    });
+
+    it('re-creates symlink when content is identical', async () => {
+      await adapter.import(claudeDir);
+      await adapter.createSymlinks(claudeDir);
+
+      const rulePath = join(claudeDir, 'rules', 'coding-standards.md');
+      const originalContent = await readFile(rulePath, 'utf-8');
+      await unlink(rulePath);
+      await writeFile(rulePath, originalContent);
+
+      const result = await adapter.syncBack(claudeDir);
+      expect(result.synced.length).toBe(0);
+
+      const stats = await lstat(rulePath);
+      expect(stats.isSymbolicLink()).toBe(true);
     });
   });
 });
