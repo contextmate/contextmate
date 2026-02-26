@@ -82,6 +82,57 @@ contextmate setup
 
 Most users only need `contextmate setup`. The other commands are available for advanced usage and troubleshooting.
 
+## Adapter Configuration
+
+After running `contextmate setup`, you can customize which files each adapter syncs by editing `~/.contextmate/config.toml`.
+
+### OpenClaw Adapter
+
+By default, the OpenClaw adapter syncs:
+- Top-level workspace files: `MEMORY.md`, `IDENTITY.md`, `USER.md`, `SOUL.md`
+- Memory files: `memory/*.md`
+- Skill files: `skills/*/SKILL.md`
+
+To sync additional files (e.g., playbooks, process docs, config files), use `extraFiles` or `extraGlobs` in the config:
+
+```toml
+[adapters.openclaw]
+enabled = true
+workspacePath = "/Users/you/.openclaw/workspace"
+
+# Sync specific files (paths are RELATIVE to workspacePath)
+extraFiles = [
+  "playbooks/bliss.md",
+  "playbooks/system.md",
+  "processes/sourcing.md",
+  "AGENTS.md",
+  "TOOLS.md",
+  "HEARTBEAT.md"
+]
+
+# Or use glob patterns (also relative to workspacePath)
+extraGlobs = [
+  "playbooks/*.md",
+  "processes/*.md"
+]
+```
+
+> **Note:** All paths in `extraFiles` and `extraGlobs` are resolved relative to `workspacePath`, not as absolute paths.
+
+After editing the config, re-import and restart the daemon:
+
+```bash
+contextmate adapter openclaw init
+contextmate daemon stop
+contextmate daemon start
+```
+
+Verify the new files are tracked:
+
+```bash
+contextmate files
+```
+
 ## Architecture
 
 ```
