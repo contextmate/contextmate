@@ -82,6 +82,96 @@ contextmate setup
 
 Most users only need `contextmate setup`. The other commands are available for advanced usage and troubleshooting.
 
+## Persistent Daemon (macOS)
+
+By default, `contextmate daemon start` runs in the foreground and stops when the terminal closes or the machine reboots. To keep it running permanently — like Dropbox — you can set up a macOS launchd agent.
+
+### 1. Store your passphrase in Keychain
+
+```bash
+security add-generic-password \
+  -s "contextmate-daemon" \
+  -a "$(whoami)" \
+  -w "YOUR_PASSPHRASE" \
+  -U ~/Library/Keychains/login.keychain-db
+```
+
+The passphrase is encrypted by macOS and unlocks automatically when you log in — no admin password needed at runtime.
+
+### 2. Create a wrapper script
+
+```bash
+cat > ~/.contextmate/daemon-wrapper.sh << 'EOF'
+#!/bin/bash
+PASSPHRASE=$(security find-generic-password -s "contextmate-daemon" -a "$(whoami)" -w 2>/dev/null)
+if [ -z "$PASSPHRASE" ]; then
+  echo "$(date): Failed to retrieve passphrase from Keychain" >&2
+  exit 1
+fi
+echo "$PASSPHRASE" | contextmate daemon start --foreground
+EOF
+chmod +x ~/.contextmate/daemon-wrapper.sh
+```
+
+### 3. Install the launchd agent
+
+```bash
+cat > ~/Library/LaunchAgents/com.contextmate.daemon.plist << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.contextmate.daemon</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>$HOME/.contextmate/daemon-wrapper.sh</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+    <key>StandardOutPath</key>
+    <string>$HOME/.contextmate/daemon-stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>$HOME/.contextmate/daemon-stderr.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>$HOME</string>
+    </dict>
+</dict>
+</plist>
+EOF
+```
+
+### 4. Load and verify
+
+```bash
+launchctl load ~/Library/LaunchAgents/com.contextmate.daemon.plist
+contextmate daemon status  # Should show "running"
+```
+
+The daemon will now auto-start on login and restart if it crashes. Logs are at `~/.contextmate/daemon-stdout.log`.
+
+To stop and unload:
+
+```bash
+launchctl unload ~/Library/LaunchAgents/com.contextmate.daemon.plist
+contextmate daemon stop
+```
+
+> **Linux users:** A similar approach works with systemd user services (`systemctl --user`). See [contextmate.dev/docs/persistent-daemon](https://contextmate.dev/docs/persistent-daemon) for details.
+
 ## Architecture
 
 ```
