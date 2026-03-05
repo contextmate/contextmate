@@ -16,6 +16,61 @@ import { FileWatcher } from '../sync/watcher.js';
 import { retrievePassphrase, isKeychainAvailable, storePassphrase, deletePassphrase } from '../utils/keychain.js';
 import { installService, uninstallService, isServiceInstalled, writeVersionFile } from './service.js';
 
+type SyncDirection = 'bidirectional' | 'pull-only' | 'disabled';
+
+interface DeviceSyncSettings {
+  adapters: {
+    claude: SyncDirection;
+    openclaw: SyncDirection;
+    mirror: SyncDirection;
+  };
+}
+
+const DEFAULT_SYNC: DeviceSyncSettings = {
+  adapters: { claude: 'pull-only', openclaw: 'pull-only', mirror: 'pull-only' },
+};
+
+async function loadDeviceSyncSettings(
+  serverUrl: string,
+  token: string,
+  deviceId: string,
+  vaultKey: Uint8Array,
+): Promise<DeviceSyncSettings> {
+  try {
+    const res = await fetch(`${serverUrl}/api/auth/devices/${encodeURIComponent(deviceId)}/settings`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!res.ok) return DEFAULT_SYNC;
+    const data = (await res.json()) as { encryptedSettings?: string };
+    if (!data.encryptedSettings) return DEFAULT_SYNC;
+    const decrypted = decryptString(hexToBytes(data.encryptedSettings), vaultKey);
+    const parsed = JSON.parse(decrypted);
+
+    function resolveDirection(raw: unknown): SyncDirection {
+      if (typeof raw === 'boolean') return raw ? 'pull-only' : 'disabled';
+      if (raw && typeof raw === 'object') {
+        const obj = raw as Record<string, unknown>;
+        if (!obj.enabled) return 'disabled';
+        if (['bidirectional', 'pull-only', 'disabled'].includes(obj.syncDirection as string)) {
+          return obj.syncDirection as SyncDirection;
+        }
+        return 'pull-only';
+      }
+      return 'disabled';
+    }
+
+    return {
+      adapters: {
+        claude: resolveDirection(parsed.adapters?.claude),
+        openclaw: resolveDirection(parsed.adapters?.openclaw),
+        mirror: resolveDirection(parsed.adapters?.mirror),
+      },
+    };
+  } catch {
+    return DEFAULT_SYNC;
+  }
+}
+
 async function isInitialized(): Promise<boolean> {
   try {
     await access(getConfigPath());
@@ -122,15 +177,25 @@ const startCommand = new Command('start')
         process.exit(1);
       }
 
-      // Load auth token
+      // Load auth token and device ID
       let authToken = '';
+      let deviceId = '';
       try {
         const authPath = join(config.data.path, 'auth.json');
         const auth = JSON.parse(await readFile(authPath, 'utf-8'));
         authToken = auth.token || '';
+        deviceId = auth.deviceId || '';
       } catch {
         console.error(chalk.red('No auth token found. Run "contextmate init" first.'));
         process.exit(1);
+      }
+
+      // Load device sync settings (sync direction per adapter)
+      let syncSettings = DEFAULT_SYNC;
+      if (deviceId) {
+        syncSettings = await loadDeviceSyncSettings(config.server.url, authToken, deviceId, vaultKey);
+        const dirs = syncSettings.adapters;
+        console.log(chalk.dim(`  Sync direction: openclaw=${dirs.openclaw}, claude=${dirs.claude}, mirror=${dirs.mirror}`));
       }
 
       // Write PID file and version file
@@ -148,47 +213,53 @@ const startCommand = new Command('start')
       await engine.start();
 
       // Start mirror sync if enabled
+      const mirrorDirection = syncSettings.adapters.mirror;
       let mirrorInterval: ReturnType<typeof setInterval> | null = null;
       let mirrorWatcher: FileWatcher | null = null;
-      if (config.adapters.mirror.enabled && config.adapters.mirror.targetPath) {
+      if (config.adapters.mirror.enabled && config.adapters.mirror.targetPath && mirrorDirection !== 'disabled') {
         const mirrorAdapter = new MirrorAdapter({
           vaultPath: config.vault.path,
           backupsPath: getBackupsPath(),
           include: config.adapters.mirror.include,
         });
         const targetPath = config.adapters.mirror.targetPath;
+        const mirrorCanPush = mirrorDirection === 'bidirectional';
 
-        // Initial sync back + refresh
-        const backed = await mirrorAdapter.syncBack(targetPath);
-        if (backed.synced.length > 0) {
-          console.log(chalk.dim(`  Mirror: ${backed.synced.length} file${backed.synced.length === 1 ? '' : 's'} synced back`));
+        // Initial sync
+        if (mirrorCanPush) {
+          const backed = await mirrorAdapter.syncBack(targetPath);
+          if (backed.synced.length > 0) {
+            console.log(chalk.dim(`  Mirror: ${backed.synced.length} file${backed.synced.length === 1 ? '' : 's'} synced back`));
+          }
         }
         const initial = await mirrorAdapter.refreshCopies(targetPath);
         if (initial.copied.length > 0) {
           console.log(chalk.dim(`  Mirror: ${initial.copied.length} files synced`));
         }
 
-        // Watch the mirror target for real-time change detection
-        mirrorWatcher = new FileWatcher(targetPath, config.sync.debounceMs);
-        mirrorWatcher.start();
+        // Watch the mirror target for real-time change detection (only if bidirectional)
+        if (mirrorCanPush) {
+          mirrorWatcher = new FileWatcher(targetPath, config.sync.debounceMs);
+          mirrorWatcher.start();
 
-        const handleMirrorChange = async () => {
-          try {
-            const result = await mirrorAdapter.syncBack(targetPath);
-            if (result.synced.length > 0) {
-              console.log(chalk.dim(`  Mirror: ${result.synced.length} file${result.synced.length === 1 ? '' : 's'} synced back`));
+          const handleMirrorChange = async () => {
+            try {
+              const result = await mirrorAdapter.syncBack(targetPath);
+              if (result.synced.length > 0) {
+                console.log(chalk.dim(`  Mirror: ${result.synced.length} file${result.synced.length === 1 ? '' : 's'} synced back`));
+              }
+            } catch {
+              // Non-critical
             }
-          } catch {
-            // Non-critical
-          }
-        };
-        mirrorWatcher.on('file-changed', () => void handleMirrorChange());
-        mirrorWatcher.on('file-added', () => void handleMirrorChange());
+          };
+          mirrorWatcher.on('file-changed', () => void handleMirrorChange());
+          mirrorWatcher.on('file-added', () => void handleMirrorChange());
+        }
 
-        // Periodic bidirectional sync
+        // Periodic sync
         mirrorInterval = setInterval(async () => {
           try {
-            await mirrorAdapter.syncBack(targetPath);
+            if (mirrorCanPush) await mirrorAdapter.syncBack(targetPath);
             await mirrorAdapter.syncFromVault(targetPath);
           } catch {
             // Non-critical
@@ -197,8 +268,10 @@ const startCommand = new Command('start')
       }
 
       // Start OpenClaw workspace watchers if enabled
-      const openclawInstances: Array<{ interval: ReturnType<typeof setInterval>; watcher: FileWatcher }> = [];
-      if (config.adapters.openclaw.enabled) {
+      const openclawDirection = syncSettings.adapters.openclaw;
+      const openclawCanPush = openclawDirection === 'bidirectional';
+      const openclawInstances: Array<{ interval: ReturnType<typeof setInterval>; watcher: FileWatcher | null }> = [];
+      if (config.adapters.openclaw.enabled && openclawDirection !== 'disabled') {
         const workspaces = Object.entries(config.adapters.openclaw.workspaces);
         for (const [agentId, ws] of workspaces) {
           const openclawAdapter = new OpenClawAdapter({
@@ -210,81 +283,98 @@ const startCommand = new Command('start')
           });
           const workspacePath = ws.workspacePath;
 
-          // Initial sync back
-          const backed = await openclawAdapter.syncBack(workspacePath);
-          if (backed.synced.length > 0) {
-            console.log(chalk.dim(`  OpenClaw [${agentId}]: ${backed.synced.length} file${backed.synced.length === 1 ? '' : 's'} synced back`));
+          // Initial sync back (only if bidirectional)
+          if (openclawCanPush) {
+            const backed = await openclawAdapter.syncBack(workspacePath);
+            if (backed.synced.length > 0) {
+              console.log(chalk.dim(`  OpenClaw [${agentId}]: ${backed.synced.length} file${backed.synced.length === 1 ? '' : 's'} synced back`));
+            }
           }
 
-          // Watch workspace for changes
-          const watcher = new FileWatcher(workspacePath, config.sync.debounceMs);
-          watcher.start();
+          // Watch workspace for changes (only if bidirectional)
+          let watcher: FileWatcher | null = null;
+          if (openclawCanPush) {
+            watcher = new FileWatcher(workspacePath, config.sync.debounceMs);
+            watcher.start();
 
-          const handleChange = async () => {
-            try {
-              const result = await openclawAdapter.syncBack(workspacePath);
-              if (result.synced.length > 0) {
-                console.log(chalk.dim(`  OpenClaw [${agentId}]: ${result.synced.length} file${result.synced.length === 1 ? '' : 's'} synced back`));
+            const handleChange = async () => {
+              try {
+                const result = await openclawAdapter.syncBack(workspacePath);
+                if (result.synced.length > 0) {
+                  console.log(chalk.dim(`  OpenClaw [${agentId}]: ${result.synced.length} file${result.synced.length === 1 ? '' : 's'} synced back`));
+                }
+              } catch {
+                // Non-critical
               }
-            } catch {
-              // Non-critical
-            }
-          };
-          watcher.on('file-changed', () => void handleChange());
-          watcher.on('file-added', () => void handleChange());
+            };
+            watcher.on('file-changed', () => void handleChange());
+            watcher.on('file-added', () => void handleChange());
+          }
 
           const interval = setInterval(async () => {
             try {
-              await openclawAdapter.syncBack(workspacePath);
+              if (openclawCanPush) await openclawAdapter.syncBack(workspacePath);
               await openclawAdapter.syncFromVault(workspacePath);
             } catch {
               // Non-critical
             }
           }, config.sync.pollIntervalMs);
 
-          openclawInstances.push({ interval, watcher });
+          openclawInstances.push({ interval, watcher: watcher! });
         }
 
         // Global sync: config, sessions, cron
         const globalSync = new OpenClawGlobalSync(config.vault.path);
-        const globalBacked = await globalSync.syncBack();
-        if (globalBacked.synced.length > 0) {
-          console.log(chalk.dim(`  OpenClaw [global]: ${globalBacked.synced.length} file${globalBacked.synced.length === 1 ? '' : 's'} synced back`));
+        if (openclawCanPush) {
+          const globalBacked = await globalSync.syncBack();
+          if (globalBacked.synced.length > 0) {
+            console.log(chalk.dim(`  OpenClaw [global]: ${globalBacked.synced.length} file${globalBacked.synced.length === 1 ? '' : 's'} synced back`));
+          }
         }
 
-        // Watch ~/.openclaw/ for config/session changes
-        const openclawRootWatcher = new FileWatcher(getOpenClawRoot(), config.sync.debounceMs);
-        openclawRootWatcher.start();
+        // Watch ~/.openclaw/ for config/session changes (only if bidirectional)
+        let openclawRootWatcher: FileWatcher | null = null;
+        if (openclawCanPush) {
+          openclawRootWatcher = new FileWatcher(getOpenClawRoot(), config.sync.debounceMs);
+          openclawRootWatcher.start();
 
-        const handleGlobalChange = async () => {
-          try {
-            const result = await globalSync.syncBack();
-            if (result.synced.length > 0) {
-              console.log(chalk.dim(`  OpenClaw [global]: ${result.synced.length} file${result.synced.length === 1 ? '' : 's'} synced back`));
+          const handleGlobalChange = async () => {
+            try {
+              const result = await globalSync.syncBack();
+              if (result.synced.length > 0) {
+                console.log(chalk.dim(`  OpenClaw [global]: ${result.synced.length} file${result.synced.length === 1 ? '' : 's'} synced back`));
+              }
+            } catch {
+              // Non-critical
             }
-          } catch {
-            // Non-critical
-          }
-        };
-        openclawRootWatcher.on('file-changed', () => void handleGlobalChange());
-        openclawRootWatcher.on('file-added', () => void handleGlobalChange());
+          };
+          openclawRootWatcher.on('file-changed', () => void handleGlobalChange());
+          openclawRootWatcher.on('file-added', () => void handleGlobalChange());
+        }
 
         const globalInterval = setInterval(async () => {
           try {
-            await globalSync.syncBack();
+            if (openclawCanPush) await globalSync.syncBack();
             await globalSync.syncFromVault();
           } catch {
             // Non-critical
           }
         }, config.sync.pollIntervalMs);
 
-        openclawInstances.push({ interval: globalInterval, watcher: openclawRootWatcher });
+        if (openclawRootWatcher) {
+          openclawInstances.push({ interval: globalInterval, watcher: openclawRootWatcher });
+        } else {
+          // No watcher but still need to track the interval for cleanup
+          openclawInstances.push({ interval: globalInterval, watcher: null });
+        }
       }
 
       // Start Claude workspace watcher if enabled
+      const claudeDirection = syncSettings.adapters.claude;
+      const claudeCanPush = claudeDirection === 'bidirectional';
       let claudeInterval: ReturnType<typeof setInterval> | null = null;
       let claudeWatcher: FileWatcher | null = null;
-      if (config.adapters.claude.enabled && config.adapters.claude.claudeDir) {
+      if (config.adapters.claude.enabled && config.adapters.claude.claudeDir && claudeDirection !== 'disabled') {
         const claudeAdapter = new ClaudeCodeAdapter({
           vaultPath: config.vault.path,
           backupsPath: getBackupsPath(),
@@ -292,32 +382,39 @@ const startCommand = new Command('start')
         });
         const claudeDir = config.adapters.claude.claudeDir;
 
-        // Initial sync back
-        const backed = await claudeAdapter.syncBack(claudeDir);
-        if (backed.synced.length > 0) {
-          console.log(chalk.dim(`  Claude: ${backed.synced.length} file${backed.synced.length === 1 ? '' : 's'} synced back`));
+        // Initial sync back (only if bidirectional)
+        if (claudeCanPush) {
+          const backed = await claudeAdapter.syncBack(claudeDir);
+          if (backed.synced.length > 0) {
+            console.log(chalk.dim(`  Claude: ${backed.synced.length} file${backed.synced.length === 1 ? '' : 's'} synced back`));
+          }
         }
 
-        // Watch Claude directory for changes
-        claudeWatcher = new FileWatcher(claudeDir, config.sync.debounceMs);
-        claudeWatcher.start();
+        // Initial pull from vault
+        await claudeAdapter.syncFromVault(claudeDir);
 
-        const handleClaudeChange = async () => {
-          try {
-            const result = await claudeAdapter.syncBack(claudeDir);
-            if (result.synced.length > 0) {
-              console.log(chalk.dim(`  Claude: ${result.synced.length} file${result.synced.length === 1 ? '' : 's'} synced back`));
+        // Watch Claude directory for changes (only if bidirectional)
+        if (claudeCanPush) {
+          claudeWatcher = new FileWatcher(claudeDir, config.sync.debounceMs);
+          claudeWatcher.start();
+
+          const handleClaudeChange = async () => {
+            try {
+              const result = await claudeAdapter.syncBack(claudeDir);
+              if (result.synced.length > 0) {
+                console.log(chalk.dim(`  Claude: ${result.synced.length} file${result.synced.length === 1 ? '' : 's'} synced back`));
+              }
+            } catch {
+              // Non-critical
             }
-          } catch {
-            // Non-critical
-          }
-        };
-        claudeWatcher.on('file-changed', () => void handleClaudeChange());
-        claudeWatcher.on('file-added', () => void handleClaudeChange());
+          };
+          claudeWatcher.on('file-changed', () => void handleClaudeChange());
+          claudeWatcher.on('file-added', () => void handleClaudeChange());
+        }
 
         claudeInterval = setInterval(async () => {
           try {
-            await claudeAdapter.syncBack(claudeDir);
+            if (claudeCanPush) await claudeAdapter.syncBack(claudeDir);
             await claudeAdapter.syncFromVault(claudeDir);
           } catch {
             // Non-critical
@@ -332,7 +429,7 @@ const startCommand = new Command('start')
         if (mirrorWatcher) await mirrorWatcher.stop();
         for (const oc of openclawInstances) {
           clearInterval(oc.interval);
-          await oc.watcher.stop();
+          if (oc.watcher) await oc.watcher.stop();
         }
         if (claudeInterval) clearInterval(claudeInterval);
         if (claudeWatcher) await claudeWatcher.stop();

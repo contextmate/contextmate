@@ -74,8 +74,42 @@ function getFileIcon(name: string): string {
   if (name.includes('rule')) return '[R]';
   if (name.endsWith('.md')) return '[D]';
   if (name.endsWith('.json')) return '[J]';
+  if (name.endsWith('.jsonl')) return '[J]';
   if (name.endsWith('.toml')) return '[T]';
+  if (/\.(jpe?g|png|gif|webp|svg)$/i.test(name)) return '[I]';
+  if (/\.(py|sh|js|ts)$/i.test(name)) return '[X]';
   return '[F]';
+}
+
+const FOLDER_LABELS: Record<string, string> = {
+  'openclaw': 'OpenClaw',
+  'claude': 'Claude Code',
+  'skills': 'Shared Skills',
+  'custom': 'Extra Paths',
+};
+
+const SUBFOLDER_LABELS: Record<string, string> = {
+  'openclaw/config': 'Config & cron',
+};
+
+function getFolderLabel(path: string): string | null {
+  // Check exact subfolder matches first
+  if (SUBFOLDER_LABELS[path]) return SUBFOLDER_LABELS[path];
+
+  // Check top-level folder
+  const topLevel = path.split('/')[0];
+  if (FOLDER_LABELS[topLevel]) {
+    // For openclaw subfolders, add agent context
+    if (topLevel === 'openclaw' && path.includes('/')) {
+      const sub = path.split('/')[1];
+      if (sub === 'config') return 'Config & cron';
+      if (sub?.endsWith('-sessions')) return `${sub.replace('-sessions', '')} sessions`;
+      return `${sub} workspace`;
+    }
+    return FOLDER_LABELS[topLevel];
+  }
+
+  return null;
 }
 
 interface TreeItemProps {
@@ -89,6 +123,7 @@ function TreeItem({ node, depth, selectedFile, onSelect }: TreeItemProps) {
   const [expanded, setExpanded] = useState(true);
 
   if (node.isDir) {
+    const label = getFolderLabel(node.path);
     return (
       <div>
         <div
@@ -99,6 +134,7 @@ function TreeItem({ node, depth, selectedFile, onSelect }: TreeItemProps) {
           <span className="tree-arrow">{expanded ? 'v' : '>'}</span>
           <span className="tree-icon">[/]</span>
           <span className="tree-name">{node.name}</span>
+          {label && <span className="tree-label">{label}</span>}
         </div>
         {expanded &&
           node.children.map((child) => (

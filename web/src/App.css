@@ -316,6 +316,13 @@
   white-space: nowrap;
 }
 
+.tree-label {
+  color: #888;
+  font-size: 0.6875rem;
+  margin-left: 0.5rem;
+  flex-shrink: 0;
+}
+
 /* Main content area */
 .main-content {
   overflow: auto;

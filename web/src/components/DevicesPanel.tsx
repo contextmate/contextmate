@@ -3,15 +3,49 @@ import { useAuth } from '../context/AuthContext.tsx';
 import { encryptData, decryptData, bytesToHex, hexToBytes } from '../crypto/browser-crypto.ts';
 import type { Device } from '../api/client.ts';
 
+type SyncDirection = 'bidirectional' | 'pull-only' | 'disabled';
+
+interface AdapterSettings {
+  enabled: boolean;
+  syncDirection: SyncDirection;
+}
+
 interface DeviceSettings {
   scanPaths: string[];
-  adapters: { claude: boolean; openclaw: boolean };
+  adapters: {
+    claude: AdapterSettings;
+    openclaw: AdapterSettings;
+    mirror: AdapterSettings;
+  };
 }
+
+const DEFAULT_ADAPTER: AdapterSettings = { enabled: false, syncDirection: 'pull-only' };
 
 const DEFAULT_SETTINGS: DeviceSettings = {
   scanPaths: [],
-  adapters: { claude: false, openclaw: false },
+  adapters: {
+    claude: { ...DEFAULT_ADAPTER },
+    openclaw: { ...DEFAULT_ADAPTER },
+    mirror: { ...DEFAULT_ADAPTER },
+  },
 };
+
+function normalizeAdapter(raw: unknown): AdapterSettings {
+  if (typeof raw === 'boolean') {
+    // Migrate old format: boolean → AdapterSettings
+    return { enabled: raw, syncDirection: 'pull-only' };
+  }
+  if (raw && typeof raw === 'object') {
+    const obj = raw as Record<string, unknown>;
+    return {
+      enabled: Boolean(obj.enabled),
+      syncDirection: (['bidirectional', 'pull-only', 'disabled'].includes(obj.syncDirection as string)
+        ? obj.syncDirection as SyncDirection
+        : 'pull-only'),
+    };
+  }
+  return { ...DEFAULT_ADAPTER };
+}
 
 function formatRelativeTime(ts: number): string {
   const now = Date.now();
@@ -39,8 +73,9 @@ async function decryptSettings(
   return {
     scanPaths: Array.isArray(parsed.scanPaths) ? parsed.scanPaths : [],
     adapters: {
-      claude: Boolean(parsed.adapters?.claude),
-      openclaw: Boolean(parsed.adapters?.openclaw),
+      claude: normalizeAdapter(parsed.adapters?.claude),
+      openclaw: normalizeAdapter(parsed.adapters?.openclaw),
+      mirror: normalizeAdapter(parsed.adapters?.mirror),
     },
   };
 }
@@ -53,6 +88,28 @@ async function encryptSettings(
   const plaintext = new TextEncoder().encode(json);
   const encrypted = await encryptData(plaintext, vaultKey);
   return bytesToHex(encrypted);
+}
+
+const ADAPTER_NAMES: Array<{ key: keyof DeviceSettings['adapters']; label: string }> = [
+  { key: 'openclaw', label: 'OpenClaw' },
+  { key: 'claude', label: 'Claude Code' },
+  { key: 'mirror', label: 'Mirror' },
+];
+
+function syncDirectionLabel(dir: SyncDirection): string {
+  switch (dir) {
+    case 'bidirectional': return 'Bidirectional';
+    case 'pull-only': return 'Pull only';
+    case 'disabled': return 'Disabled';
+  }
+}
+
+function syncDirectionBadgeClass(dir: SyncDirection): string {
+  switch (dir) {
+    case 'bidirectional': return 'badge-active';
+    case 'pull-only': return 'badge';
+    case 'disabled': return 'badge-revoked';
+  }
 }
 
 export function DevicesPanel() {
@@ -133,7 +190,6 @@ export function DevicesPanel() {
         setSettingsError(null);
         const encryptedHex = await encryptSettings(editSettings, vaultKey);
         await apiClient.updateDeviceSettings(deviceId, encryptedHex);
-        // Update local state so the device reflects the new settings
         setDevices((prev) =>
           prev.map((d) =>
             d.id === deviceId ? { ...d, encryptedSettings: encryptedHex } : d
@@ -195,12 +251,19 @@ export function DevicesPanel() {
     [editSettings]
   );
 
-  const handleAdapterChange = useCallback(
-    (adapter: 'claude' | 'openclaw', checked: boolean) => {
+  const handleSyncDirectionChange = useCallback(
+    (adapter: keyof DeviceSettings['adapters'], direction: SyncDirection) => {
       if (!editSettings) return;
       setEditSettings({
         ...editSettings,
-        adapters: { ...editSettings.adapters, [adapter]: checked },
+        adapters: {
+          ...editSettings.adapters,
+          [adapter]: {
+            ...editSettings.adapters[adapter],
+            enabled: direction !== 'disabled',
+            syncDirection: direction,
+          },
+        },
       });
     },
     [editSettings]
@@ -234,6 +297,9 @@ export function DevicesPanel() {
   return (
     <div className="panel">
       <div className="panel-header">Devices</div>
+      <div className="panel-section" style={{ opacity: 0.7, fontSize: '0.8125rem', marginBottom: '0.5rem' }}>
+        New devices default to pull-only. Enable bidirectional sync to push local changes to the vault.
+      </div>
 
       {devices.length === 0 ? (
         <div className="panel-section">
@@ -245,6 +311,7 @@ export function DevicesPanel() {
             <tr>
               <th>Name</th>
               <th>Last Seen</th>
+              <th>Adapters</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -271,6 +338,9 @@ export function DevicesPanel() {
                     </span>
                   </td>
                   <td>
+                    <DeviceAdapterSummary device={device} vaultKey={vaultKey} />
+                  </td>
+                  <td>
                     <button
                       className="btn btn-secondary"
                       onClick={() => handleRemoveDevice(device.id, device.name)}
@@ -282,7 +352,7 @@ export function DevicesPanel() {
                 </tr>
                 {expandedDeviceId === device.id && (
                   <tr>
-                    <td colSpan={3}>
+                    <td colSpan={4}>
                       <div className="panel-section">
                         {settingsLoading && <div>Decrypting settings...</div>}
                         {settingsError && (
@@ -292,6 +362,27 @@ export function DevicesPanel() {
                         )}
                         {editSettings && !settingsLoading && (
                           <>
+                            <div style={{ marginBottom: '1rem' }}>
+                              <strong>Adapters & Sync Direction</strong>
+                              <div style={{ marginTop: '0.5rem' }}>
+                                {ADAPTER_NAMES.map(({ key, label }) => (
+                                  <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                                    <span style={{ minWidth: '6rem' }}>{label}</span>
+                                    <select
+                                      className="form-input"
+                                      style={{ width: 'auto', flex: 'none' }}
+                                      value={editSettings.adapters[key].enabled ? editSettings.adapters[key].syncDirection : 'disabled'}
+                                      onChange={(e) => handleSyncDirectionChange(key, e.target.value as SyncDirection)}
+                                    >
+                                      <option value="disabled">Disabled</option>
+                                      <option value="pull-only">Pull only</option>
+                                      <option value="bidirectional">Bidirectional</option>
+                                    </select>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
                             <div style={{ marginBottom: '1rem' }}>
                               <strong>Scan Paths</strong>
                               <div className="scan-path-list">
@@ -341,32 +432,6 @@ export function DevicesPanel() {
                               </div>
                             </div>
 
-                            <div style={{ marginBottom: '1rem' }}>
-                              <strong>Adapters</strong>
-                              <div style={{ marginTop: '0.25rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.25rem' }}>
-                                  <input
-                                    type="checkbox"
-                                    checked={editSettings.adapters.claude}
-                                    onChange={(e) =>
-                                      handleAdapterChange('claude', e.target.checked)
-                                    }
-                                  />{' '}
-                                  Claude Code
-                                </label>
-                                <label style={{ display: 'block' }}>
-                                  <input
-                                    type="checkbox"
-                                    checked={editSettings.adapters.openclaw}
-                                    onChange={(e) =>
-                                      handleAdapterChange('openclaw', e.target.checked)
-                                    }
-                                  />{' '}
-                                  OpenClaw
-                                </label>
-                              </div>
-                            </div>
-
                             <button
                               className="btn btn-primary"
                               onClick={() => handleSave(device.id)}
@@ -386,5 +451,39 @@ export function DevicesPanel() {
         </table>
       )}
     </div>
+  );
+}
+
+function DeviceAdapterSummary({ device, vaultKey }: { device: Device; vaultKey: CryptoKey | null }) {
+  const [settings, setSettings] = useState<DeviceSettings | null>(null);
+
+  useEffect(() => {
+    if (!device.encryptedSettings || !vaultKey) return;
+    decryptSettings(device.encryptedSettings, vaultKey)
+      .then(setSettings)
+      .catch(() => setSettings(null));
+  }, [device.encryptedSettings, vaultKey]);
+
+  if (!settings) {
+    return <span style={{ opacity: 0.5 }}>--</span>;
+  }
+
+  const active = ADAPTER_NAMES.filter(({ key }) => settings.adapters[key].enabled);
+  if (active.length === 0) {
+    return <span style={{ opacity: 0.5 }}>none</span>;
+  }
+
+  return (
+    <span style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
+      {active.map(({ key, label }) => (
+        <span
+          key={key}
+          className={syncDirectionBadgeClass(settings.adapters[key].syncDirection)}
+          title={`${label}: ${syncDirectionLabel(settings.adapters[key].syncDirection)}`}
+        >
+          {label.split(' ')[0]}
+        </span>
+      ))}
+    </span>
   );
 }
