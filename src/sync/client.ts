@@ -1,13 +1,24 @@
+import { readFile, writeFile } from 'node:fs/promises';
 import type { FileMetadata, DeviceInfo } from '../types.js';
+
+export interface TokenRefreshConfig {
+  authJsonPath: string;
+}
 
 export class SyncClient {
   private readonly baseUrl: string;
-  private readonly authToken: string;
+  private authToken: string;
   private readonly maxRetries = 3;
+  private refreshConfig: TokenRefreshConfig | null = null;
+  private refreshing: Promise<void> | null = null;
 
   constructor(baseUrl: string, authToken: string) {
     this.baseUrl = baseUrl.replace(/\/+$/, '');
     this.authToken = authToken;
+  }
+
+  enableTokenRefresh(config: TokenRefreshConfig): void {
+    this.refreshConfig = config;
   }
 
   async uploadFile(
@@ -117,6 +128,49 @@ export class SyncClient {
     return (await response.json()) as DeviceInfo[];
   }
 
+  private async refreshToken(): Promise<boolean> {
+    if (!this.refreshConfig) return false;
+
+    // Deduplicate concurrent refresh attempts
+    if (this.refreshing) {
+      await this.refreshing;
+      return true;
+    }
+
+    this.refreshing = (async () => {
+      try {
+        const authData = JSON.parse(await readFile(this.refreshConfig!.authJsonPath, 'utf-8')) as {
+          authHash: string;
+          userId: string;
+          token: string;
+          deviceId?: string;
+        };
+
+        const response = await fetch(`${this.baseUrl}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ authKeyHash: authData.authHash }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Token refresh failed: ${response.status}`);
+        }
+
+        const result = (await response.json()) as { userId: string; token: string };
+        this.authToken = result.token;
+
+        // Persist new token to auth.json
+        authData.token = result.token;
+        await writeFile(this.refreshConfig!.authJsonPath, JSON.stringify(authData, null, 2), { mode: 0o600 });
+      } finally {
+        this.refreshing = null;
+      }
+    })();
+
+    await this.refreshing;
+    return true;
+  }
+
   private async fetchWithRetry(
     url: string,
     init: RequestInit,
@@ -133,6 +187,16 @@ export class SyncClient {
     for (let attempt = 0; attempt < this.maxRetries; attempt++) {
       try {
         const response = await fetch(url, requestInit);
+
+        // On 401, try refreshing the token and retry once
+        if (response.status === 401 && attempt === 0) {
+          const refreshed = await this.refreshToken();
+          if (refreshed) {
+            headers.set('Authorization', `Bearer ${this.authToken}`);
+            continue;
+          }
+        }
+
         // Don't retry client errors (4xx) except 429
         if (response.status >= 400 && response.status < 500 && response.status !== 429) {
           return response;
