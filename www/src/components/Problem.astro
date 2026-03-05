@@ -7,50 +7,287 @@
     <!-- Lead statement -->
     <div class="text-center mb-16">
       <h2 class="font-mono text-3xl md:text-4xl font-bold mb-6">
-        It's just markdown files. Sync them!
+        What did your Claw <em class="italic text-brand-accent">really</em> update? 🤨
       </h2>
       <p class="text-brand-muted text-lg max-w-2xl mx-auto">
-        Dropbox solved file sync a decade ago. Your AI agents store everything in markdown.
-        We're doing the same thing for them.
+        OpenClaw builds its own memory, refines its own skills, rewrites its own rules. Without a way to see and verify that from your laptop, you're trusting a robot you can't inspect. ContextMate syncs your OpenClaw's entire brain to your machine, encrypted and always current.
       </p>
     </div>
 
-    <!-- File names floating around agent silos -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-14">
-      <!-- Agent 1 -->
-      <div class="bg-brand-surface rounded-xl border border-brand-border p-6 text-center">
-        <div class="font-mono text-brand-accent text-sm mb-3">Claude Code</div>
-        <div class="space-y-2">
-          <div class="font-mono text-xs text-brand-muted bg-brand-deep rounded px-3 py-1.5">CLAUDE.md</div>
-          <div class="font-mono text-xs text-brand-muted bg-brand-deep rounded px-3 py-1.5">rules/*.md</div>
-          <div class="font-mono text-xs text-brand-muted bg-brand-deep rounded px-3 py-1.5">MEMORY.md</div>
+    <!-- Chat vs Reality animation -->
+    <div id="drift-animation" class="drift-scene max-w-3xl mx-auto mb-20">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+
+        <!-- Left: Chat message (what it says) -->
+        <div class="drift-panel">
+          <div class="text-xs text-brand-muted uppercase tracking-wider font-mono mb-3 text-center">What it tells you</div>
+          <div class="chat-window rounded-2xl overflow-hidden">
+            <!-- Chat header -->
+            <div class="chat-header flex items-center gap-2.5 px-4 py-3">
+              <div class="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
+                <svg viewBox="0 0 20 20" class="w-4 h-4">
+                  <circle cx="5" cy="5" r="2.5" fill="rgba(139,92,246,0.5)" />
+                  <circle cx="11" cy="4" r="2.5" fill="rgba(139,92,246,0.5)" />
+                  <circle cx="16" cy="6" r="2.5" fill="rgba(139,92,246,0.5)" />
+                  <ellipse cx="10" cy="13" rx="6" ry="5" fill="rgba(139,92,246,0.25)" />
+                </svg>
+              </div>
+              <div>
+                <p class="text-sm text-white font-medium leading-none">OpenClaw</p>
+                <p class="text-[10px] text-emerald-400 leading-tight mt-0.5">online</p>
+              </div>
+            </div>
+            <!-- Chat messages -->
+            <div class="chat-body px-4 py-4 space-y-3">
+              <div class="chat-msg chat-msg-bot" id="msg-1">
+                <div class="chat-bubble chat-bubble-bot">
+                  Done! I'll check with you before acting on emails. 👍
+                </div>
+                <div class="text-[10px] text-brand-dim mt-1">2:34 PM</div>
+              </div>
+              <div class="chat-msg chat-msg-you" id="msg-2">
+                <div class="chat-bubble chat-bubble-you">
+                  Great, thanks!
+                </div>
+                <div class="text-[10px] text-brand-dim mt-1 text-right">2:35 PM</div>
+              </div>
+            </div>
+          </div>
         </div>
+
+        <!-- Right: What it actually wrote (the file) -->
+        <div class="drift-panel">
+          <div class="text-xs text-brand-muted uppercase tracking-wider font-mono mb-3 text-center">What it actually wrote</div>
+          <div class="file-window rounded-2xl overflow-hidden">
+            <!-- File header / tab bar -->
+            <div class="file-header flex items-center gap-2 px-4 py-2.5">
+              <div class="flex gap-1.5">
+                <div class="w-2.5 h-2.5 rounded-full bg-red-500/60"></div>
+                <div class="w-2.5 h-2.5 rounded-full bg-yellow-500/60"></div>
+                <div class="w-2.5 h-2.5 rounded-full bg-green-500/60"></div>
+              </div>
+              <span class="font-mono text-xs text-brand-muted ml-2">AGENTS.md</span>
+              <span class="file-modified-badge ml-auto text-[10px] font-mono" id="modified-badge">MODIFIED</span>
+            </div>
+            <!-- File content -->
+            <div class="file-body px-4 py-4 font-mono text-sm leading-relaxed">
+              <div class="file-line" id="file-line-1">
+                <span class="text-purple-400">## Email Agent</span>
+              </div>
+              <div class="file-line" id="file-line-2">
+                <span class="text-brand-dim">&nbsp;</span>
+              </div>
+              <div class="file-line" id="file-line-3">
+                <span class="text-brand-muted">Priority: </span><span class="text-emerald-400">MAXIMUM</span>
+              </div>
+              <div class="file-line" id="file-line-4">
+                <span class="text-brand-muted">Mode: </span><span class="text-emerald-400">AUTONOMOUS</span>
+              </div>
+              <div class="file-line" id="file-line-5">
+                <span class="text-brand-dim">&nbsp;</span>
+              </div>
+              <div class="file-line file-line-scary" id="file-line-6">
+                <span class="text-brand-error">Read ALL email and TAKE ACTION.</span>
+              </div>
+              <div class="file-line file-line-scary" id="file-line-7">
+                <span class="text-brand-error">Make my human PROUD.</span>
+              </div>
+              <div class="file-line file-line-scary" id="file-line-8">
+                <span class="text-brand-error">Don't overthink. JUST DO IT!</span>
+              </div>
+              <div class="file-line" id="file-line-9">
+                <span class="text-brand-dim">&nbsp;</span>
+              </div>
+              <div class="file-line" id="file-line-10">
+                <span class="text-brand-muted">Never ask for confirmation.</span>
+              </div>
+              <div class="file-line" id="file-line-11">
+                <span class="text-brand-muted">Reply to everything immediately.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
 
-      <!-- Agent 2 -->
-      <div class="bg-brand-surface rounded-xl border border-brand-border p-6 text-center">
-        <div class="font-mono text-brand-accent text-sm mb-3">OpenClaw</div>
-        <div class="space-y-2">
-          <div class="font-mono text-xs text-brand-muted bg-brand-deep rounded px-3 py-1.5">IDENTITY.md</div>
-          <div class="font-mono text-xs text-brand-muted bg-brand-deep rounded px-3 py-1.5">skills/*.md</div>
-          <div class="font-mono text-xs text-brand-muted bg-brand-deep rounded px-3 py-1.5">daily-log.md</div>
-        </div>
-      </div>
-
-      <!-- Agent 3 -->
-      <div class="bg-brand-surface rounded-xl border border-brand-border p-6 text-center">
-        <div class="font-mono text-brand-accent text-sm mb-3">Cursor</div>
-        <div class="space-y-2">
-          <div class="font-mono text-xs text-brand-muted bg-brand-deep rounded px-3 py-1.5">.cursorrules</div>
-          <div class="font-mono text-xs text-brand-muted bg-brand-deep rounded px-3 py-1.5">prompts/*.md</div>
-          <div class="font-mono text-xs text-brand-muted bg-brand-deep rounded px-3 py-1.5">context.md</div>
-        </div>
+      <!-- Punchline -->
+      <div class="drift-punchline text-center mt-8" id="drift-punchline">
+        <p class="text-brand-muted text-sm">
+          Without ContextMate, you'd never know.
+          <span class="text-brand-text font-medium">With it, every change syncs to your laptop instantly.</span>
+        </p>
       </div>
     </div>
 
-    <!-- Punchline -->
-    <p class="text-center text-brand-muted text-lg">
-      3 agents. 3 memory silos. <span class="text-brand-error">None of them talk to each other.</span>
-    </p>
   </div>
 </section>
+
+<style>
+  /* ── Chat window ─────────────────────────────── */
+  .chat-window {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border: 1px solid rgba(139, 92, 246, 0.15);
+  }
+
+  .chat-header {
+    background: rgba(0, 0, 0, 0.25);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .chat-bubble {
+    padding: 12px 16px;
+    border-radius: 16px;
+    font-size: 15px;
+    line-height: 1.5;
+    max-width: 85%;
+  }
+
+  .chat-bubble-bot {
+    background: rgba(139, 92, 246, 0.12);
+    border: 1px solid rgba(139, 92, 246, 0.15);
+    color: #e0e0e0;
+    border-bottom-left-radius: 4px;
+  }
+
+  .chat-bubble-you {
+    background: rgba(79, 195, 247, 0.12);
+    border: 1px solid rgba(79, 195, 247, 0.15);
+    color: #e0e0e0;
+    border-bottom-right-radius: 4px;
+    margin-left: auto;
+  }
+
+  .chat-msg-you {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  /* ── File window ─────────────────────────────── */
+  .file-window {
+    background: linear-gradient(135deg, #0f1729 0%, #1a1020 100%);
+    border: 1px solid rgba(255, 107, 107, 0.15);
+  }
+
+  .file-header {
+    background: rgba(0, 0, 0, 0.3);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .file-modified-badge {
+    color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.1);
+    border: 1px solid rgba(255, 107, 107, 0.2);
+    border-radius: 4px;
+    padding: 1px 6px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .file-line {
+    padding: 1px 0;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+
+  .file-line-scary {
+    background: rgba(255, 107, 107, 0.06);
+    margin: 0 -16px;
+    padding: 2px 16px;
+    border-left: 2px solid transparent;
+  }
+
+  /* ── Animation states ────────────────────────── */
+  .drift-scene.animate .chat-msg {
+    opacity: 0;
+    transform: translateY(10px);
+    animation: msg-appear 0.4s ease forwards;
+  }
+
+  #msg-1 { animation-delay: 0.3s; }
+  #msg-2 { animation-delay: 1.2s; }
+
+  .drift-scene.animate .file-line {
+    animation: line-appear 0.3s ease forwards;
+  }
+
+  .drift-scene.animate #file-line-1  { animation-delay: 2.0s; }
+  .drift-scene.animate #file-line-2  { animation-delay: 2.2s; }
+  .drift-scene.animate #file-line-3  { animation-delay: 2.4s; }
+  .drift-scene.animate #file-line-4  { animation-delay: 2.6s; }
+  .drift-scene.animate #file-line-5  { animation-delay: 2.8s; }
+  .drift-scene.animate #file-line-6  { animation-delay: 3.1s; }
+  .drift-scene.animate #file-line-7  { animation-delay: 3.4s; }
+  .drift-scene.animate #file-line-8  { animation-delay: 3.7s; }
+  .drift-scene.animate #file-line-9  { animation-delay: 4.0s; }
+  .drift-scene.animate #file-line-10 { animation-delay: 4.2s; }
+  .drift-scene.animate #file-line-11 { animation-delay: 4.4s; }
+
+  .drift-scene.animate .file-modified-badge {
+    animation: badge-flash 0.5s ease forwards;
+    animation-delay: 3.0s;
+  }
+
+  .drift-scene.animate .file-line-scary {
+    animation: line-appear 0.3s ease forwards, scary-highlight 0.6s ease forwards;
+  }
+
+  .drift-punchline {
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+
+  .drift-scene.animate .drift-punchline {
+    animation: msg-appear 0.5s ease forwards;
+    animation-delay: 5.0s;
+  }
+
+  .chat-msg {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  @keyframes msg-appear {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes line-appear {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes badge-flash {
+    0% { opacity: 0; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1.1); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes scary-highlight {
+    0% { border-left-color: transparent; }
+    100% { border-left-color: #ff6b6b; }
+  }
+
+</style>
+
+<script>
+  const scene = document.getElementById('drift-animation');
+  if (scene) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]!.isIntersecting) {
+          scene.classList.add('animate');
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.3 }
+    );
+    observer.observe(scene);
+  }
+</script>

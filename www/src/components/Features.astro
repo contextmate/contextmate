@@ -10,12 +10,14 @@
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
       <!-- Card 1: Zero-Knowledge Encryption -->
-      <div class="bg-brand-surface rounded-xl border border-brand-border p-8 hover:border-brand-accent/50 transition-colors">
-        <svg viewBox="0 0 40 40" class="w-10 h-10">
-          <path d="M20 4L6 10v10c0 9 6 16 14 18 8-2 14-9 14-18V10L20 4z" fill="none" stroke="#4fc3f7" stroke-width="1.5"/>
-          <rect x="16" y="16" width="8" height="7" rx="1" fill="none" stroke="#4fc3f7" stroke-width="1.5"/>
-          <path d="M18 16v-2a2 2 0 0 1 4 0v2" fill="none" stroke="#4fc3f7" stroke-width="1.5"/>
-        </svg>
+      <div class="feature-card feature-card-green rounded-2xl p-8">
+        <div class="w-12 h-12 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+          <svg viewBox="0 0 24 24" class="w-6 h-6">
+            <path d="M12 2L4 7v6c0 5.5 3.4 10.7 8 12 4.6-1.3 8-6.5 8-12V7l-8-5z" fill="rgba(102,187,106,0.12)" stroke="#66bb6a" stroke-width="1.3"/>
+            <rect x="9" y="12" width="6" height="5" rx="1" fill="rgba(102,187,106,0.15)" stroke="#66bb6a" stroke-width="1.2"/>
+            <path d="M10.5 12v-1.5a1.5 1.5 0 013 0V12" fill="none" stroke="#66bb6a" stroke-width="1.2"/>
+          </svg>
+        </div>
 
         <h3 class="font-mono font-semibold text-lg mt-5">Zero-Knowledge Encryption</h3>
         <p class="text-brand-muted text-sm mt-3 leading-relaxed">
@@ -23,34 +25,75 @@
         </p>
       </div>
 
-      <!-- Card 2: Cross-Agent Sync -->
-      <div class="bg-brand-surface rounded-xl border border-brand-border p-8 hover:border-brand-accent/50 transition-colors">
-        <svg viewBox="0 0 40 40" class="w-10 h-10">
-          <path d="M28 12a10 10 0 0 1-2 16.5" fill="none" stroke="#4fc3f7" stroke-width="1.5" stroke-linecap="round"/>
-          <path d="M12 28a10 10 0 0 1 2-16.5" fill="none" stroke="#4fc3f7" stroke-width="1.5" stroke-linecap="round"/>
-          <path d="M26 8l2 4 4-2" fill="none" stroke="#4fc3f7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M14 32l-2-4-4 2" fill="none" stroke="#4fc3f7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
+      <!-- Card 2: Robot ↔ Laptop Sync -->
+      <div class="feature-card feature-card-blue rounded-2xl p-8">
+        <div class="w-12 h-12 rounded-xl bg-sky-500/15 flex items-center justify-center">
+          <svg viewBox="0 0 24 24" class="w-6 h-6">
+            <path d="M17 7a6 6 0 0 1-1.2 10" fill="none" stroke="#4fc3f7" stroke-width="1.3" stroke-linecap="round"/>
+            <path d="M7 17a6 6 0 0 1 1.2-10" fill="none" stroke="#4fc3f7" stroke-width="1.3" stroke-linecap="round"/>
+            <path d="M16 4l1 3 3-1" fill="none" stroke="#4fc3f7" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M8 20l-1-3-3 1" fill="none" stroke="#4fc3f7" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
 
-        <h3 class="font-mono font-semibold text-lg mt-5">Cross-Agent Sync</h3>
+        <h3 class="font-mono font-semibold text-lg mt-5">Agent ↔ Laptop Sync</h3>
         <p class="text-brand-muted text-sm mt-3 leading-relaxed">
-          Skills written for Claude Code flow to OpenClaw and back. Connect any MCP-compatible agent through the local protocol server.
+          Configure your OpenClaw from your laptop. Share documents back and forth. The agent only sees its synced folder, nothing else on your machine.
         </p>
       </div>
 
       <!-- Card 3: Smart Search -->
-      <div class="bg-brand-surface rounded-xl border border-brand-border p-8 hover:border-brand-accent/50 transition-colors">
-        <svg viewBox="0 0 40 40" class="w-10 h-10">
-          <circle cx="18" cy="18" r="8" fill="none" stroke="#4fc3f7" stroke-width="1.5"/>
-          <path d="M24 24l8 8" stroke="#4fc3f7" stroke-width="1.5" stroke-linecap="round"/>
-          <path d="M15 15l6 0M15 18l4 0" stroke="#4fc3f7" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
-        </svg>
+      <div class="feature-card feature-card-purple rounded-2xl p-8">
+        <div class="w-12 h-12 rounded-xl bg-purple-500/15 flex items-center justify-center">
+          <svg viewBox="0 0 24 24" class="w-6 h-6">
+            <circle cx="11" cy="11" r="6" fill="rgba(139,92,246,0.1)" stroke="#8b5cf6" stroke-width="1.3"/>
+            <path d="M15.5 15.5l4.5 4.5" stroke="#8b5cf6" stroke-width="1.3" stroke-linecap="round"/>
+            <path d="M9 9h4M9 11.5h2.5" stroke="#8b5cf6" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+          </svg>
+        </div>
 
         <h3 class="font-mono font-semibold text-lg mt-5">Smart Search</h3>
         <p class="text-brand-muted text-sm mt-3 leading-relaxed">
-          BM25 full-text search across your entire knowledge base. Any agent can query your memories, skills, and rules via the local MCP server.
+          BM25 full-text search across everything synced. Find your agent's memories, skills, shared documents, and configuration instantly.
         </p>
       </div>
     </div>
   </div>
 </section>
+
+<style>
+  .feature-card {
+    transition: transform 0.2s ease, border-color 0.3s ease;
+  }
+
+  .feature-card:hover {
+    transform: translateY(-2px);
+  }
+
+  .feature-card-green {
+    background: linear-gradient(135deg, #1a2a1a 0%, #15201a 50%, #0f1729 100%);
+    border: 1px solid rgba(102, 187, 106, 0.15);
+  }
+
+  .feature-card-green:hover {
+    border-color: rgba(102, 187, 106, 0.35);
+  }
+
+  .feature-card-blue {
+    background: linear-gradient(135deg, #1a2a3c 0%, #162544 50%, #0f1729 100%);
+    border: 1px solid rgba(79, 195, 247, 0.15);
+  }
+
+  .feature-card-blue:hover {
+    border-color: rgba(79, 195, 247, 0.35);
+  }
+
+  .feature-card-purple {
+    background: linear-gradient(135deg, #221a3c 0%, #1a1540 50%, #0f1729 100%);
+    border: 1px solid rgba(139, 92, 246, 0.15);
+  }
+
+  .feature-card-purple:hover {
+    border-color: rgba(139, 92, 246, 0.35);
+  }
+</style>

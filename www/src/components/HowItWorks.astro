@@ -34,7 +34,7 @@ import InstallBlock from './InstallBlock.astro';
         <div class="flex-1 min-w-0">
           <h3 class="font-mono font-semibold text-lg mb-2">Setup</h3>
           <p class="text-brand-muted text-sm mb-4">
-            Guided setup creates your account, detects Claude Code and OpenClaw, imports your skills and memories, syncs everything to the cloud, opens the web dashboard, and starts the sync daemon.
+            Guided setup creates your account, detects your OpenClaw devices, imports your robot's identity, skills, and memories, syncs everything to the cloud, opens the web dashboard, and starts the sync daemon.
           </p>
           <InstallBlock command="contextmate setup" />
         </div>
@@ -71,7 +71,7 @@ import InstallBlock from './InstallBlock.astro';
           <div class="space-y-3">
             <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
               <code class="font-mono text-sm text-brand-accent font-bold whitespace-nowrap">contextmate setup</code>
-              <span class="text-brand-muted text-sm">Complete guided setup — account, adapters, sync, and dashboard</span>
+              <span class="text-brand-muted text-sm">Complete guided setup: account, adapters, sync, and dashboard</span>
             </div>
           </div>
         </div>
@@ -100,20 +100,47 @@ import InstallBlock from './InstallBlock.astro';
           <p class="text-xs text-brand-accent uppercase tracking-wider font-mono mb-3">Adapters</p>
           <div class="space-y-3">
             <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+              <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate adapter openclaw init</code>
+              <span class="text-brand-muted text-sm">Import and symlink OpenClaw workspace</span>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+              <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate adapter openclaw status</code>
+              <span class="text-brand-muted text-sm">Show OpenClaw symlink status</span>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+              <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate adapter openclaw remove</code>
+              <span class="text-brand-muted text-sm">Remove OpenClaw symlinks and restore originals</span>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
               <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate adapter claude init</code>
-              <span class="text-brand-muted text-sm">Import Claude Code files and create symlinks</span>
+              <span class="text-brand-muted text-sm">Import and symlink Claude Code workspace</span>
             </div>
             <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
               <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate adapter claude status</code>
-              <span class="text-brand-muted text-sm">Check symlink health</span>
+              <span class="text-brand-muted text-sm">Show Claude Code symlink status</span>
             </div>
             <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
               <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate adapter claude remove</code>
-              <span class="text-brand-muted text-sm">Remove symlinks and restore originals</span>
+              <span class="text-brand-muted text-sm">Remove Claude Code symlinks and restore originals</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mirror -->
+        <div class="bg-brand-deep px-6 py-4">
+          <p class="text-xs text-brand-accent uppercase tracking-wider font-mono mb-3">Mirror</p>
+          <div class="space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+              <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate adapter mirror init</code>
+              <span class="text-brand-muted text-sm">Import and symlink Mirror workspace</span>
             </div>
             <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
-              <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate adapter openclaw init</code>
-              <span class="text-brand-muted text-sm">Import OpenClaw files and create symlinks</span>
+              <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate adapter mirror status</code>
+              <span class="text-brand-muted text-sm">Show Mirror symlink status</span>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+              <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate adapter mirror remove</code>
+              <span class="text-brand-muted text-sm">Remove Mirror symlinks and restore originals</span>
             </div>
           </div>
         </div>
@@ -123,8 +150,16 @@ import InstallBlock from './InstallBlock.astro';
           <p class="text-xs text-brand-accent uppercase tracking-wider font-mono mb-3">Sync</p>
           <div class="space-y-3">
             <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+              <code class="font-mono text-sm text-brand-accent font-bold whitespace-nowrap">contextmate daemon install</code>
+              <span class="text-brand-muted text-sm">Install daemon as a persistent OS service (recommended)</span>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+              <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate daemon uninstall</code>
+              <span class="text-brand-muted text-sm">Remove daemon OS service and keychain entry</span>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
               <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate daemon start</code>
-              <span class="text-brand-muted text-sm">Start the background sync daemon</span>
+              <span class="text-brand-muted text-sm">Start the sync daemon manually (one-off)</span>
             </div>
             <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
               <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate daemon stop</code>
@@ -137,6 +172,21 @@ import InstallBlock from './InstallBlock.astro';
           </div>
         </div>
 
+        <!-- Configuration -->
+        <div class="bg-brand-deep px-6 py-4">
+          <p class="text-xs text-brand-accent uppercase tracking-wider font-mono mb-3">Configuration</p>
+          <div class="space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+              <code class="font-mono text-sm text-brand-accent font-bold whitespace-nowrap">app.contextmate.dev</code>
+              <span class="text-brand-muted text-sm">Manage scan paths, folders, and devices from the web dashboard</span>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+              <code class="font-mono text-sm text-brand-text whitespace-nowrap">~/.contextmate/config.toml</code>
+              <span class="text-brand-muted text-sm">Manual config: extra sync paths, adapter globs, and advanced settings</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Vault -->
         <div class="bg-brand-deep px-6 py-4">
           <p class="text-xs text-brand-accent uppercase tracking-wider font-mono mb-3">Vault</p>
@@ -144,6 +194,10 @@ import InstallBlock from './InstallBlock.astro';
             <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
               <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate files</code>
               <span class="text-brand-muted text-sm">List all tracked files in your vault</span>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+              <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate files delete</code>
+              <span class="text-brand-muted text-sm">Delete files matching a pattern from vault, sync DB, and server</span>
             </div>
             <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
               <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate log</code>
@@ -165,8 +219,16 @@ import InstallBlock from './InstallBlock.astro';
               <span class="text-brand-muted text-sm">Start the local MCP server for agent search</span>
             </div>
             <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
-              <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate mcp api-key</code>
-              <span class="text-brand-muted text-sm">Manage MCP API keys</span>
+              <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate mcp api-key create</code>
+              <span class="text-brand-muted text-sm">Create a scoped API key</span>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+              <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate mcp api-key list</code>
+              <span class="text-brand-muted text-sm">List API keys</span>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+              <code class="font-mono text-sm text-brand-text whitespace-nowrap">contextmate mcp api-key revoke</code>
+              <span class="text-brand-muted text-sm">Revoke an API key</span>
             </div>
           </div>
         </div>

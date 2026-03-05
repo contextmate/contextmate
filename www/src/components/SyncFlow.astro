@@ -4,10 +4,10 @@
 
 <section class="py-24 px-6 relative overflow-hidden">
   <h2 class="font-mono text-3xl md:text-4xl font-bold text-center mb-4">
-    Sync everywhere. Trust no one.
+    Your laptop. Your robot. Encrypted in between.
   </h2>
   <p class="text-brand-muted text-center mb-12 max-w-2xl mx-auto">
-    The server only sees encrypted blobs. Your passphrase never leaves your device.
+    The server only sees encrypted blobs. Your passphrase never leaves your device. OpenClaw only sees its synced folder.
   </p>
 
   <!-- Desktop interactive SVG -->
@@ -57,8 +57,8 @@
       <!-- LEFT COLUMN: Device Nodes                    -->
       <!-- ============================================ -->
 
-      <!-- MacBook -->
-      <g class="flow-node" data-connections="path-0,path-3" data-label="MacBook Pro&#10;Your primary dev machine">
+      <!-- Your Laptop -->
+      <g class="flow-node" data-connections="path-0,path-3" data-label="Your Laptop&#10;Configure your robot from here">
         <rect x="40" y="55" width="120" height="50" rx="8" fill="#16213e" stroke="#2a2a4a" stroke-width="1" filter="url(#node-glow)" />
         <!-- Laptop icon -->
         <g transform="translate(52, 67)">
@@ -66,11 +66,11 @@
           <rect x="3" y="2" width="10" height="6" rx="0.5" fill="#4fc3f7" opacity="0.15" />
           <path d="M-2 13h20" stroke="#4fc3f7" stroke-width="1.2" stroke-linecap="round" />
         </g>
-        <text x="78" y="77" fill="#e0e0e0" font-size="11" font-family="var(--font-sans)" dominant-baseline="middle">MacBook</text>
+        <text x="78" y="77" fill="#e0e0e0" font-size="11" font-family="var(--font-sans)" dominant-baseline="middle">Your Laptop</text>
       </g>
 
       <!-- Desktop -->
-      <g class="flow-node" data-connections="path-1,path-4" data-label="Desktop&#10;Your workstation">
+      <g class="flow-node" data-connections="path-1,path-4" data-label="Desktop&#10;Another workstation">
         <rect x="40" y="175" width="120" height="50" rx="8" fill="#16213e" stroke="#2a2a4a" stroke-width="1" filter="url(#node-glow)" />
         <!-- Monitor icon -->
         <g transform="translate(52, 187)">
@@ -82,16 +82,17 @@
         <text x="78" y="197" fill="#e0e0e0" font-size="11" font-family="var(--font-sans)" dominant-baseline="middle">Desktop</text>
       </g>
 
-      <!-- iPhone -->
-      <g class="flow-node" data-connections="path-2,path-5" data-label="iPhone&#10;On-the-go access">
+      <!-- Web Dashboard -->
+      <g class="flow-node" data-connections="path-2,path-5" data-label="Web Dashboard&#10;Manage from any browser">
         <rect x="40" y="295" width="120" height="50" rx="8" fill="#16213e" stroke="#2a2a4a" stroke-width="1" filter="url(#node-glow)" />
-        <!-- Phone icon -->
-        <g transform="translate(55, 305)">
-          <rect x="0" y="0" width="10" height="17" rx="2" stroke="#4fc3f7" stroke-width="1.2" fill="none" />
-          <rect x="2" y="2" width="6" height="10" rx="0.5" fill="#4fc3f7" opacity="0.15" />
-          <circle cx="5" cy="14.5" r="1" fill="#4fc3f7" opacity="0.4" />
+        <!-- Browser icon -->
+        <g transform="translate(52, 305)">
+          <rect x="0" y="0" width="16" height="14" rx="2" stroke="#4fc3f7" stroke-width="1.2" fill="none" />
+          <line x1="0" y1="4" x2="16" y2="4" stroke="#4fc3f7" stroke-width="1" opacity="0.5" />
+          <circle cx="3" cy="2" r="0.8" fill="#4fc3f7" opacity="0.5" />
+          <circle cx="6" cy="2" r="0.8" fill="#4fc3f7" opacity="0.5" />
         </g>
-        <text x="78" y="317" fill="#e0e0e0" font-size="11" font-family="var(--font-sans)" dominant-baseline="middle">iPhone</text>
+        <text x="78" y="317" fill="#e0e0e0" font-size="11" font-family="var(--font-sans)" dominant-baseline="middle">Dashboard</text>
       </g>
 
       <!-- ============================================ -->
@@ -139,20 +140,21 @@
       <!-- RIGHT COLUMN: Agent Nodes                    -->
       <!-- ============================================ -->
 
-      <!-- Claude Code -->
-      <g class="flow-node" data-connections="path-0,path-3" data-label="Claude Code&#10;Anthropic's coding agent">
+      <!-- OpenClaw #1 -->
+      <g class="flow-node" data-connections="path-0,path-3" data-label="OpenClaw #1&#10;Your primary robot">
         <rect x="740" y="55" width="120" height="50" rx="8" fill="#16213e" stroke="#2a2a4a" stroke-width="1" filter="url(#node-glow)" />
-        <!-- Terminal icon -->
-        <g transform="translate(752, 68)">
-          <rect x="0" y="0" width="16" height="12" rx="2" stroke="#4fc3f7" stroke-width="1.2" fill="none" />
-          <path d="M3 4l4 3-4 3" stroke="#4fc3f7" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
-          <line x1="9" y1="9" x2="13" y2="9" stroke="#4fc3f7" stroke-width="1.2" stroke-linecap="round" />
+        <!-- Claw/paw icon -->
+        <g transform="translate(752, 67)">
+          <circle cx="4" cy="2" r="2" fill="#4fc3f7" opacity="0.5" />
+          <circle cx="10" cy="1" r="2" fill="#4fc3f7" opacity="0.5" />
+          <circle cx="15" cy="2.5" r="2" fill="#4fc3f7" opacity="0.5" />
+          <ellipse cx="9.5" cy="8" rx="6" ry="5" fill="#4fc3f7" opacity="0.3" stroke="#4fc3f7" stroke-width="1" />
         </g>
-        <text x="778" y="81" fill="#e0e0e0" font-size="10.5" font-family="var(--font-sans)" dominant-baseline="middle">Claude Code</text>
+        <text x="778" y="81" fill="#e0e0e0" font-size="10.5" font-family="var(--font-sans)" dominant-baseline="middle">OpenClaw #1</text>
       </g>
 
-      <!-- OpenClaw -->
-      <g class="flow-node" data-connections="path-1,path-4" data-label="OpenClaw&#10;Open-source agent">
+      <!-- OpenClaw #2 -->
+      <g class="flow-node" data-connections="path-1,path-4" data-label="OpenClaw #2&#10;Another robot in your fleet">
         <rect x="740" y="175" width="120" height="50" rx="8" fill="#16213e" stroke="#2a2a4a" stroke-width="1" filter="url(#node-glow)" />
         <!-- Claw/paw icon -->
         <g transform="translate(752, 187)">
@@ -161,11 +163,11 @@
           <circle cx="15" cy="2.5" r="2" fill="#4fc3f7" opacity="0.5" />
           <ellipse cx="9.5" cy="8" rx="6" ry="5" fill="#4fc3f7" opacity="0.3" stroke="#4fc3f7" stroke-width="1" />
         </g>
-        <text x="778" y="201" fill="#e0e0e0" font-size="10.5" font-family="var(--font-sans)" dominant-baseline="middle">OpenClaw</text>
+        <text x="778" y="201" fill="#e0e0e0" font-size="10.5" font-family="var(--font-sans)" dominant-baseline="middle">OpenClaw #2</text>
       </g>
 
-      <!-- Any Agent -->
-      <g class="flow-node" data-connections="path-2,path-5" data-label="Any Agent&#10;Extensible adapter system">
+      <!-- More Devices -->
+      <g class="flow-node" data-connections="path-2,path-5" data-label="More Devices&#10;Add any number of robots or machines">
         <rect x="740" y="295" width="120" height="50" rx="8" fill="#16213e" stroke="#2a2a4a" stroke-width="1" filter="url(#node-glow)" />
         <!-- Plus icon -->
         <g transform="translate(752, 307)">
@@ -173,7 +175,7 @@
           <line x1="8" y1="4" x2="8" y2="12" stroke="#4fc3f7" stroke-width="1.5" stroke-linecap="round" />
           <line x1="4" y1="8" x2="12" y2="8" stroke="#4fc3f7" stroke-width="1.5" stroke-linecap="round" />
         </g>
-        <text x="778" y="321" fill="#e0e0e0" font-size="10.5" font-family="var(--font-sans)" dominant-baseline="middle">Any Agent</text>
+        <text x="778" y="321" fill="#e0e0e0" font-size="10.5" font-family="var(--font-sans)" dominant-baseline="middle">More Devices</text>
       </g>
 
       <!-- ============================================ -->
@@ -202,7 +204,7 @@
           <rect x="1" y="2" width="18" height="12" rx="2" stroke="#4fc3f7" stroke-width="1.2" fill="none" />
           <path d="M0 15h20" stroke="#4fc3f7" stroke-width="1.2" stroke-linecap="round" />
         </svg>
-        <span class="text-xs text-brand-text">MacBook</span>
+        <span class="text-xs text-brand-text">Your Laptop</span>
       </div>
       <div class="bg-brand-surface border border-brand-border rounded-lg px-4 py-3 flex flex-col items-center gap-1">
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -214,10 +216,10 @@
       </div>
       <div class="bg-brand-surface border border-brand-border rounded-lg px-4 py-3 flex flex-col items-center gap-1">
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <rect x="5" y="1" width="10" height="18" rx="2" stroke="#4fc3f7" stroke-width="1.2" fill="none" />
-          <circle cx="10" cy="16" r="1" fill="#4fc3f7" opacity="0.5" />
+          <rect x="2" y="3" width="16" height="12" rx="2" stroke="#4fc3f7" stroke-width="1.2" fill="none" />
+          <line x1="2" y1="6" x2="18" y2="6" stroke="#4fc3f7" stroke-width="1" opacity="0.5" />
         </svg>
-        <span class="text-xs text-brand-text">iPhone</span>
+        <span class="text-xs text-brand-text">Dashboard</span>
       </div>
     </div>
 
@@ -247,15 +249,16 @@
       <span class="text-brand-accent font-mono text-sm tracking-wide">decrypted</span>
     </div>
 
-    <!-- Agent row -->
+    <!-- Robot row -->
     <div class="flex gap-3">
       <div class="bg-brand-surface border border-brand-border rounded-lg px-4 py-3 flex flex-col items-center gap-1">
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <rect x="1" y="2" width="18" height="14" rx="2" stroke="#4fc3f7" stroke-width="1.2" fill="none" />
-          <path d="M4 7l4 3-4 3" stroke="#4fc3f7" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
-          <line x1="10" y1="12" x2="15" y2="12" stroke="#4fc3f7" stroke-width="1.2" stroke-linecap="round" />
+          <circle cx="5" cy="5" r="2.5" fill="#4fc3f7" opacity="0.4" />
+          <circle cx="11" cy="4" r="2.5" fill="#4fc3f7" opacity="0.4" />
+          <circle cx="16" cy="6" r="2.5" fill="#4fc3f7" opacity="0.4" />
+          <ellipse cx="10" cy="13" rx="6" ry="5" fill="#4fc3f7" opacity="0.2" stroke="#4fc3f7" stroke-width="1" />
         </svg>
-        <span class="text-xs text-brand-text">Claude</span>
+        <span class="text-xs text-brand-text">OpenClaw #1</span>
       </div>
       <div class="bg-brand-surface border border-brand-border rounded-lg px-4 py-3 flex flex-col items-center gap-1">
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -264,7 +267,7 @@
           <circle cx="16" cy="6" r="2.5" fill="#4fc3f7" opacity="0.4" />
           <ellipse cx="10" cy="13" rx="6" ry="5" fill="#4fc3f7" opacity="0.2" stroke="#4fc3f7" stroke-width="1" />
         </svg>
-        <span class="text-xs text-brand-text">OpenClaw</span>
+        <span class="text-xs text-brand-text">OpenClaw #2</span>
       </div>
       <div class="bg-brand-surface border border-brand-border rounded-lg px-4 py-3 flex flex-col items-center gap-1">
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -272,7 +275,7 @@
           <line x1="10" y1="6" x2="10" y2="14" stroke="#4fc3f7" stroke-width="1.5" stroke-linecap="round" />
           <line x1="6" y1="10" x2="14" y2="10" stroke="#4fc3f7" stroke-width="1.5" stroke-linecap="round" />
         </svg>
-        <span class="text-xs text-brand-text">Any Agent</span>
+        <span class="text-xs text-brand-text">More</span>
       </div>
     </div>
   </div>
