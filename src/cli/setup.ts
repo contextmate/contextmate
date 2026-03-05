@@ -454,33 +454,38 @@ export const setupCommand = new Command('setup')
 
       if (claudeDetected) {
         console.log(chalk.green('  ✓ Claude Code detected'));
-        const adapter = getAdapter('claude', {
-          vaultPath: config!.vault.path,
-          backupsPath: getBackupsPath(),
-          scanPaths: config!.adapters.claude.scanPaths,
-        });
+        const enableClaude = await ask(chalk.bold('    Enable Claude Code sync? (Y/n): '));
+        if (enableClaude.trim().toLowerCase() !== 'n') {
+          const adapter = getAdapter('claude', {
+            vaultPath: config!.vault.path,
+            backupsPath: getBackupsPath(),
+            scanPaths: config!.adapters.claude.scanPaths,
+          });
 
-        // Import files
-        console.log(chalk.dim('    Importing files...'));
-        const importResult = await adapter.import(claudeDir);
+          // Import files
+          console.log(chalk.dim('    Importing files...'));
+          const importResult = await adapter.import(claudeDir);
 
-        const skills = countByPrefix(importResult.imported, 'skills/') +
-          countByPrefix(importResult.skipped, 'skills/');
-        const rules = countByPrefix(importResult.imported, 'claude/rules/') +
-          countByPrefix(importResult.skipped, 'claude/rules/');
-        console.log(`    ${skills} skills, ${rules} rules`);
-        console.log(
-          `    ${chalk.green(`${importResult.imported.length} new`)}, ` +
-          `${chalk.dim(`${importResult.skipped.length} unchanged`)}`,
-        );
+          const skills = countByPrefix(importResult.imported, 'skills/') +
+            countByPrefix(importResult.skipped, 'skills/');
+          const rules = countByPrefix(importResult.imported, 'claude/rules/') +
+            countByPrefix(importResult.skipped, 'claude/rules/');
+          console.log(`    ${skills} skills, ${rules} rules`);
+          console.log(
+            `    ${chalk.green(`${importResult.imported.length} new`)}, ` +
+            `${chalk.dim(`${importResult.skipped.length} unchanged`)}`,
+          );
 
-        // Copy files to workspace
-        console.log(chalk.dim('    Syncing to workspace...'));
-        const copyResult = await adapter.copyToWorkspace(claudeDir);
-        console.log(`    ${chalk.green(`${copyResult.copied.length} files synced`)}`);
+          // Copy files to workspace
+          console.log(chalk.dim('    Syncing to workspace...'));
+          const copyResult = await adapter.copyToWorkspace(claudeDir);
+          console.log(`    ${chalk.green(`${copyResult.copied.length} files synced`)}`);
 
-        config!.adapters.claude.enabled = true;
-        config!.adapters.claude.claudeDir = claudeDir;
+          config!.adapters.claude.enabled = true;
+          config!.adapters.claude.claudeDir = claudeDir;
+        } else {
+          console.log(chalk.dim('    Skipped.'));
+        }
       } else {
         console.log(chalk.dim('  ○ Claude Code not detected'));
       }
@@ -491,38 +496,43 @@ export const setupCommand = new Command('setup')
 
       if (openclawDetected) {
         console.log(chalk.green(`  ✓ OpenClaw detected (${openclawWorkspaces.length} agent${openclawWorkspaces.length === 1 ? '' : 's'})`));
-        for (const ws of openclawWorkspaces) {
-          const label = ws.name ? `${ws.id} (${ws.name})` : ws.id;
-          console.log(chalk.dim(`    Agent: ${label}`));
+        const enableOpenClaw = await ask(chalk.bold('    Enable OpenClaw sync? (Y/n): '));
+        if (enableOpenClaw.trim().toLowerCase() !== 'n') {
+          for (const ws of openclawWorkspaces) {
+            const label = ws.name ? `${ws.id} (${ws.name})` : ws.id;
+            console.log(chalk.dim(`    Agent: ${label}`));
 
-          const adapter = new OpenClawAdapter({
-            vaultPath: config!.vault.path,
-            backupsPath: getBackupsPath(),
-            agentId: ws.id,
-          });
+            const adapter = new OpenClawAdapter({
+              vaultPath: config!.vault.path,
+              backupsPath: getBackupsPath(),
+              agentId: ws.id,
+            });
 
-          console.log(chalk.dim('    Importing files...'));
-          const importResult = await adapter.import(ws.workspace);
-          console.log(
-            `    ${chalk.green(`${importResult.imported.length} new`)}, ` +
-            `${chalk.dim(`${importResult.skipped.length} unchanged`)}`,
-          );
+            console.log(chalk.dim('    Importing files...'));
+            const importResult = await adapter.import(ws.workspace);
+            console.log(
+              `    ${chalk.green(`${importResult.imported.length} new`)}, ` +
+              `${chalk.dim(`${importResult.skipped.length} unchanged`)}`,
+            );
 
-          console.log(chalk.dim('    Syncing to workspace...'));
-          const copyResult = await adapter.copyToWorkspace(ws.workspace);
-          console.log(`    ${chalk.green(`${copyResult.copied.length} files synced`)}`);
+            console.log(chalk.dim('    Syncing to workspace...'));
+            const copyResult = await adapter.copyToWorkspace(ws.workspace);
+            console.log(`    ${chalk.green(`${copyResult.copied.length} files synced`)}`);
 
-          config!.adapters.openclaw.workspaces[ws.id] = {
-            workspacePath: ws.workspace,
-            include: ['**/*'],
-            exclude: [
-              'node_modules/**', '.git/**', '.vercel/**',
-              '__pycache__/**', '*.db', '*.sqlite', '.openclaw/**',
-            ],
-            maxFileSizeBytes: 10 * 1024 * 1024,
-          };
+            config!.adapters.openclaw.workspaces[ws.id] = {
+              workspacePath: ws.workspace,
+              include: ['**/*'],
+              exclude: [
+                'node_modules/**', '.git/**', '.vercel/**',
+                '__pycache__/**', '*.db', '*.sqlite', '.openclaw/**',
+              ],
+              maxFileSizeBytes: 10 * 1024 * 1024,
+            };
+          }
+          config!.adapters.openclaw.enabled = true;
+        } else {
+          console.log(chalk.dim('    Skipped.'));
         }
-        config!.adapters.openclaw.enabled = true;
       } else {
         console.log(chalk.dim('  ○ OpenClaw not detected'));
       }
