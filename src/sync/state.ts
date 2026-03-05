@@ -130,22 +130,6 @@ export class SyncStateDB {
     }));
   }
 
-  getModifiedFiles(): SyncFile[] {
-    const rows = this.db.prepare(
-      "SELECT id, path, content_hash, encrypted_hash, version, size, sync_state, last_modified FROM files WHERE sync_state IN ('modified', 'pending')",
-    ).all() as Array<{ id: string; path: string; content_hash: string; encrypted_hash: string; version: number; size: number; sync_state: SyncState; last_modified: number }>;
-    return rows.map((row) => ({
-      id: row.id,
-      path: row.path,
-      contentHash: row.content_hash,
-      encryptedHash: row.encrypted_hash,
-      version: row.version,
-      size: row.size,
-      syncState: row.sync_state,
-      lastModified: row.last_modified,
-    }));
-  }
-
   getConflicts(): SyncFile[] {
     return this.getFilesByState('conflict');
   }

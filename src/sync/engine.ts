@@ -38,18 +38,10 @@ export class SyncEngine {
     this.stateDb = new SyncStateDB(dbPath);
 
     // Start file watcher
-    this.watcher = new FileWatcher(this.config.vault.path, this.config.sync.debounceMs);
+    this.watcher = new FileWatcher(this.config.vault.path, this.config.sync.debounceMs, { followSymlinks: true });
     this.watcher.start();
 
-    // Connect WebSocket
-    const wsUrl = this.config.server.url.replace(/^http/, 'ws');
-    this.ws = new SyncWebSocket(wsUrl, this.authToken);
-    this.ws.connect();
-
-    // Initial full sync
-    await this.syncAll();
-
-    // Wire up local file events
+    // Wire up local file events BEFORE syncAll so no events are lost
     this.watcher.on('file-changed', (event: { path: string }) => {
       void this.handleLocalChange(event.path);
     });
@@ -59,6 +51,14 @@ export class SyncEngine {
     this.watcher.on('file-removed', (event: { path: string }) => {
       void this.handleLocalDelete(event.path);
     });
+
+    // Connect WebSocket
+    const wsUrl = this.config.server.url.replace(/^http/, 'ws');
+    this.ws = new SyncWebSocket(wsUrl, this.authToken);
+    this.ws.connect();
+
+    // Initial full sync
+    await this.syncAll();
 
     // Wire up remote events
     this.ws.on('file-updated', (event: { path: string; version: number }) => {
@@ -319,12 +319,10 @@ export class SyncEngine {
         await this.extraPathsManager.importToVault();
       }
 
-      // Discover untracked local files and upload them
+      // Discover all local files on disk and reconcile with state DB
       const localDiskFiles = await this.discoverLocalFiles(this.config.vault.path, this.config.vault.path);
       for (const filePath of localDiskFiles) {
         if (filePath.endsWith('.conflict.md')) continue;
-        if (localFileMap.has(filePath)) continue; // Already tracked
-        if (remoteFileMap.has(filePath)) continue; // Will be handled by pull logic
 
         try {
           const absolutePath = join(this.config.vault.path, filePath);
@@ -332,19 +330,29 @@ export class SyncEngine {
           const contentBytes = new Uint8Array(content);
           const contentHash = hashContent(contentBytes);
 
+          const tracked = localFileMap.get(filePath);
+
+          // Skip if tracked and content unchanged
+          if (tracked && tracked.contentHash === contentHash) continue;
+
+          // Skip untracked files that exist on remote (will be handled by pull logic)
+          if (!tracked && remoteFileMap.has(filePath)) continue;
+
+          // New or modified file — upload it
           const fileKey = deriveKeyForPath(this.vaultKey, filePath);
           const encrypted = encryptFile(contentBytes, fileKey);
           const encryptedHash = hashContent(encrypted);
 
+          const currentVersion = tracked?.version ?? 0;
           const uploadResult = await this.client.uploadFile(
             filePath,
             encrypted,
             encryptedHash,
-            0,
+            currentVersion,
           );
 
           this.stateDb.upsertFile({
-            id: randomUUID(),
+            id: tracked?.id ?? randomUUID(),
             path: filePath,
             contentHash,
             encryptedHash,
@@ -356,41 +364,13 @@ export class SyncEngine {
           this.stateDb.addSyncLog('upload', filePath);
           result.uploaded.push(filePath);
         } catch (err) {
-          result.errors.push({
-            path: filePath,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
-      }
-
-      // Push local changes (modified/pending files)
-      const modifiedFiles = this.stateDb.getModifiedFiles();
-      for (const file of modifiedFiles) {
-        try {
-          const absolutePath = join(this.config.vault.path, file.path);
-          const content = await readFile(absolutePath);
-          const contentBytes = new Uint8Array(content);
-
-          const fileKey = deriveKeyForPath(this.vaultKey, file.path);
-          const encrypted = encryptFile(contentBytes, fileKey);
-          const encryptedHash = hashContent(encrypted);
-
-          const uploadResult = await this.client.uploadFile(
-            file.path,
-            encrypted,
-            encryptedHash,
-            file.version,
-          );
-
-          this.stateDb.markSynced(file.path, uploadResult.version, encryptedHash);
-          result.uploaded.push(file.path);
-        } catch (err) {
           if (err instanceof ConflictError) {
-            result.conflicts.push(file.path);
-            this.stateDb.markConflict(file.path);
+            result.conflicts.push(filePath);
+            const tracked = localFileMap.get(filePath);
+            if (tracked) this.stateDb.markConflict(filePath);
           } else {
             result.errors.push({
-              path: file.path,
+              path: filePath,
               error: err instanceof Error ? err.message : String(err),
             });
           }

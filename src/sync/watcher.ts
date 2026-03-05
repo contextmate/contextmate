@@ -8,6 +8,7 @@ interface FileEvent {
 
 export interface WatcherOptions {
   usePolling?: boolean;
+  followSymlinks?: boolean;
 }
 
 export class FileWatcher extends EventEmitter {
@@ -30,6 +31,7 @@ export class FileWatcher extends EventEmitter {
       ignoreInitial: true,
       persistent: true,
       usePolling: this.options.usePolling,
+      followSymlinks: this.options.followSymlinks ?? false,
       ignored: [
         /(^|\/)\../,
         /\.conflict\.md$/,
