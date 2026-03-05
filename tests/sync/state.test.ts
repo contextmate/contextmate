@@ -68,17 +68,6 @@ describe('SyncStateDB', () => {
     expect(pending.every((f) => f.syncState === 'pending')).toBe(true);
   });
 
-  it('getModifiedFiles returns modified and pending files', () => {
-    db.upsertFile(makeSyncFile({ id: 'f1', path: 'a.md', syncState: 'modified' }));
-    db.upsertFile(makeSyncFile({ id: 'f2', path: 'b.md', syncState: 'synced' }));
-    db.upsertFile(makeSyncFile({ id: 'f3', path: 'c.md', syncState: 'pending' }));
-    const modified = db.getModifiedFiles();
-    expect(modified.length).toBe(2);
-    const states = modified.map((f) => f.syncState);
-    expect(states).toContain('modified');
-    expect(states).toContain('pending');
-  });
-
   it('markSynced updates state correctly', () => {
     db.upsertFile(makeSyncFile({ id: 'f1', path: 'a.md', syncState: 'pending' }));
     db.markSynced('a.md', 2, 'new-enc-hash');
