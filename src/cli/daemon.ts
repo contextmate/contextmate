@@ -13,6 +13,8 @@ import { MirrorAdapter } from '../adapters/mirror.js';
 import { OpenClawAdapter } from '../adapters/openclaw.js';
 import { ClaudeCodeAdapter } from '../adapters/claude.js';
 import { FileWatcher } from '../sync/watcher.js';
+import { retrievePassphrase, isKeychainAvailable, storePassphrase, deletePassphrase } from '../utils/keychain.js';
+import { installService, uninstallService, isServiceInstalled, writeVersionFile } from './service.js';
 
 async function isInitialized(): Promise<boolean> {
   try {
@@ -45,7 +47,8 @@ async function readPassphrase(prompt: string): Promise<string> {
 const startCommand = new Command('start')
   .description('Start the sync daemon')
   .option('--foreground', 'Run in the foreground (default for MVP)')
-  .action(async () => {
+  .option('--service', 'Running as OS service (read passphrase from keychain)')
+  .action(async (_opts: { foreground?: boolean; service?: boolean }) => {
     try {
       if (!(await isInitialized())) {
         console.error(chalk.red('ContextMate is not initialized. Run "contextmate init" first.'));
@@ -85,11 +88,23 @@ const startCommand = new Command('start')
         encryptedMasterKey: string;
       };
 
-      // Prompt for passphrase
-      const passphrase = await readPassphrase(chalk.bold('Enter passphrase: '));
-      if (!passphrase) {
-        console.error(chalk.red('Error: Passphrase cannot be empty.'));
-        process.exit(1);
+      // Get passphrase (from keychain in service mode, or prompt interactively)
+      const opts = startCommand.opts();
+      let passphrase: string;
+      if (opts.service || !process.stdin.isTTY) {
+        const stored = await retrievePassphrase();
+        if (!stored) {
+          console.error(chalk.red('No passphrase found in OS keychain.'));
+          console.error(chalk.dim('Run "contextmate daemon install" to store passphrase and install service.'));
+          process.exit(1);
+        }
+        passphrase = stored;
+      } else {
+        passphrase = await readPassphrase(chalk.bold('Enter passphrase: '));
+        if (!passphrase) {
+          console.error(chalk.red('Error: Passphrase cannot be empty.'));
+          process.exit(1);
+        }
       }
 
       // Derive keys
@@ -118,12 +133,15 @@ const startCommand = new Command('start')
         process.exit(1);
       }
 
-      // Write PID file
+      // Write PID file and version file
       await writeFile(pidFile, String(process.pid), 'utf-8');
+      await writeVersionFile(config);
 
       // Start sync engine (foreground)
       console.log(chalk.green(`Daemon started (PID: ${process.pid})`));
-      console.log(chalk.dim('Press Ctrl+C to stop.'));
+      if (!opts.service) {
+        console.log(chalk.dim('Press Ctrl+C to stop.'));
+      }
 
       const { SyncEngine } = await import('../sync/index.js');
       const engine = new SyncEngine(config, vaultKey, authToken);
@@ -378,6 +396,127 @@ const statusSubCommand = new Command('status')
       } else {
         console.log(chalk.red(`Daemon is not running (stale PID file, PID: ${pid}).`));
       }
+
+      // Show service status
+      if (await isServiceInstalled()) {
+        console.log(chalk.dim('  Service: installed (persistent)'));
+      } else {
+        console.log(chalk.dim('  Service: not installed'));
+      }
+    } catch (err) {
+      console.error(chalk.red(`Error: ${err instanceof Error ? err.message : String(err)}`));
+      process.exit(1);
+    }
+  });
+
+async function stopRunningDaemon(config: Awaited<ReturnType<typeof loadConfig>>): Promise<void> {
+  const pidFile = getPidFilePath(config);
+  try {
+    const pidStr = await readFile(pidFile, 'utf-8');
+    const pid = parseInt(pidStr.trim(), 10);
+    if (isPidRunning(pid)) {
+      process.kill(pid, 'SIGTERM');
+      for (let i = 0; i < 20; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        if (!isPidRunning(pid)) break;
+      }
+    }
+    await unlink(pidFile);
+  } catch {
+    // No daemon running
+  }
+}
+
+const installCommand = new Command('install')
+  .description('Install daemon as a persistent OS service')
+  .action(async () => {
+    try {
+      if (!(await isInitialized())) {
+        console.error(chalk.red('ContextMate is not initialized. Run "contextmate setup" first.'));
+        process.exit(1);
+      }
+
+      const config = await loadConfig();
+
+      // Check if already installed
+      if (await isServiceInstalled()) {
+        const answer = await readPassphrase('Service already installed. Reinstall? (y/N): ');
+        if (answer.trim().toLowerCase() !== 'y') return;
+        await uninstallService();
+      }
+
+      // Check keychain availability
+      if (!(await isKeychainAvailable())) {
+        console.error(chalk.red('OS keychain is not available on this system.'));
+        console.error(chalk.dim('macOS requires /usr/bin/security. Linux requires secret-tool (libsecret).'));
+        process.exit(1);
+      }
+
+      // Stop running daemon if any
+      console.log(chalk.dim('Stopping any running daemon...'));
+      await stopRunningDaemon(config);
+
+      // Prompt for passphrase and verify
+      const passphrase = await readPassphrase(chalk.bold('Enter passphrase: '));
+      if (!passphrase) {
+        console.error(chalk.red('Passphrase cannot be empty.'));
+        process.exit(1);
+      }
+
+      const credentialsPath = join(config.data.path, 'credentials.json');
+      const credentials = JSON.parse(await readFile(credentialsPath, 'utf-8')) as {
+        salt: string;
+        encryptedMasterKey: string;
+      };
+      const salt = hexToBytes(credentials.salt);
+      const masterKey = await deriveMasterKey(passphrase, salt);
+      const vaultKey = deriveVaultKey(masterKey);
+      try {
+        decryptString(hexToBytes(credentials.encryptedMasterKey), vaultKey);
+      } catch {
+        console.error(chalk.red('Invalid passphrase.'));
+        process.exit(1);
+      }
+
+      // Store in keychain
+      console.log(chalk.dim('Storing passphrase in OS keychain...'));
+      await storePassphrase(passphrase);
+
+      // Write version file
+      await writeVersionFile(config);
+
+      // Install service
+      console.log(chalk.dim('Installing OS service...'));
+      await installService(config);
+
+      console.log(chalk.green('Daemon service installed and started.'));
+      console.log(chalk.dim('The daemon will start automatically on login/boot.'));
+    } catch (err) {
+      console.error(chalk.red(`Error: ${err instanceof Error ? err.message : String(err)}`));
+      process.exit(1);
+    }
+  });
+
+const uninstallCommand = new Command('uninstall')
+  .description('Remove daemon OS service and keychain entry')
+  .action(async () => {
+    try {
+      if (!(await isServiceInstalled())) {
+        console.log(chalk.dim('No service installed.'));
+        return;
+      }
+
+      console.log(chalk.dim('Removing OS service...'));
+      await uninstallService();
+
+      try {
+        await deletePassphrase();
+        console.log(chalk.dim('Passphrase removed from OS keychain.'));
+      } catch {
+        // Already removed or not stored
+      }
+
+      console.log(chalk.green('Daemon service uninstalled.'));
     } catch (err) {
       console.error(chalk.red(`Error: ${err instanceof Error ? err.message : String(err)}`));
       process.exit(1);
@@ -388,4 +527,6 @@ export const daemonCommand = new Command('daemon')
   .description('Manage the sync daemon')
   .addCommand(startCommand)
   .addCommand(stopCommand)
-  .addCommand(statusSubCommand);
+  .addCommand(statusSubCommand)
+  .addCommand(installCommand)
+  .addCommand(uninstallCommand);
