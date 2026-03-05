@@ -29,6 +29,9 @@ export class SyncEngine {
     this.vaultKey = vaultKey;
     this.authToken = authToken || config.server.apiKey || '';
     this.client = new SyncClient(config.server.url, this.authToken);
+    this.client.enableTokenRefresh({
+      authJsonPath: join(config.data.path, 'auth.json'),
+    });
   }
 
   async start(): Promise<void> {
