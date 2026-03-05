@@ -104,6 +104,13 @@ async function readPassphrase(prompt: string): Promise<string> {
   return answer;
 }
 
+async function ask(prompt: string): Promise<string> {
+  const rl = readline.createInterface({ input: stdin, output: stdout });
+  const answer = await rl.question(prompt);
+  rl.close();
+  return answer;
+}
+
 const startCommand = new Command('start')
   .description('Start the sync daemon in foreground (use "install" for persistent service)')
   .option('--foreground', 'Run in the foreground')
@@ -529,7 +536,7 @@ const installCommand = new Command('install')
 
       // Check if already installed
       if (await isServiceInstalled()) {
-        const answer = await readPassphrase('Service already installed. Reinstall? (y/N): ');
+        const answer = await ask('Service already installed. Reinstall? (y/N): ');
         if (answer.trim().toLowerCase() !== 'y') return;
         await uninstallService();
       }
