@@ -315,6 +315,7 @@ function createAdapterSubcommands(agentName: string, displayName: string): Comma
 
         console.log('');
         console.log(chalk.green(`${displayName} adapter initialized successfully.`));
+        console.log(chalk.dim('Run "contextmate daemon install" to start persistent sync.'));
       } catch (err) {
         console.error(chalk.red(`Error: ${err instanceof Error ? err.message : String(err)}`));
         process.exit(1);

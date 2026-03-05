@@ -720,10 +720,13 @@ export const setupCommand = new Command('setup')
       }
 
       // Fallback: offer foreground start
-      const startDaemon = await ask(chalk.bold('Start sync daemon now? (Y/n): '));
+      console.log(chalk.dim('Tip: "contextmate daemon install" is recommended for persistent sync.'));
+      console.log(chalk.dim('It stores your passphrase securely and auto-starts on boot.'));
+      console.log('');
+      const startDaemon = await ask(chalk.bold('Start sync daemon in foreground for now? (Y/n): '));
       if (startDaemon.trim().toLowerCase() === 'n') {
         console.log('');
-        console.log(chalk.dim('Run "contextmate daemon start" or "contextmate daemon install" whenever you\'re ready.'));
+        console.log(chalk.dim('Run "contextmate daemon install" whenever you\'re ready.'));
         return;
       }
 

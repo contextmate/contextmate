@@ -45,8 +45,8 @@ async function readPassphrase(prompt: string): Promise<string> {
 }
 
 const startCommand = new Command('start')
-  .description('Start the sync daemon')
-  .option('--foreground', 'Run in the foreground (default for MVP)')
+  .description('Start the sync daemon in foreground (use "install" for persistent service)')
+  .option('--foreground', 'Run in the foreground')
   .option('--service', 'Running as OS service (read passphrase from keychain)')
   .action(async (_opts: { foreground?: boolean; service?: boolean }) => {
     try {
@@ -430,7 +430,7 @@ async function stopRunningDaemon(config: Awaited<ReturnType<typeof loadConfig>>)
 }
 
 const installCommand = new Command('install')
-  .description('Install daemon as a persistent OS service')
+  .description('Install daemon as a persistent OS service (recommended)')
   .action(async () => {
     try {
       if (!(await isInitialized())) {
