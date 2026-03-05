@@ -1,6 +1,21 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext.tsx';
 import type { FileMetadata } from '../api/client.ts';
+
+const COLLAPSED_KEY = 'contextmate-collapsed-folders';
+
+function loadCollapsed(): Set<string> {
+  try {
+    const raw = localStorage.getItem(COLLAPSED_KEY);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function saveCollapsed(collapsed: Set<string>): void {
+  localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...collapsed]));
+}
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -117,19 +132,20 @@ interface TreeItemProps {
   depth: number;
   selectedFile: string | null;
   onSelect: (path: string) => void;
+  collapsed: Set<string>;
+  onToggle: (path: string) => void;
 }
 
-function TreeItem({ node, depth, selectedFile, onSelect }: TreeItemProps) {
-  const [expanded, setExpanded] = useState(true);
-
+function TreeItem({ node, depth, selectedFile, onSelect, collapsed, onToggle }: TreeItemProps) {
   if (node.isDir) {
+    const expanded = !collapsed.has(node.path);
     const label = getFolderLabel(node.path);
     return (
       <div>
         <div
           className="tree-item tree-dir"
           style={{ paddingLeft: `${depth * 16 + 8}px` }}
-          onClick={() => setExpanded(!expanded)}
+          onClick={() => onToggle(node.path)}
         >
           <span className="tree-arrow">{expanded ? 'v' : '>'}</span>
           <span className="tree-icon">[/]</span>
@@ -144,6 +160,8 @@ function TreeItem({ node, depth, selectedFile, onSelect }: TreeItemProps) {
               depth={depth + 1}
               selectedFile={selectedFile}
               onSelect={onSelect}
+              collapsed={collapsed}
+              onToggle={onToggle}
             />
           ))}
       </div>
@@ -229,6 +247,17 @@ export function FileTree({ onSelect, selectedFile, onFileCountChange, onFilesLoa
 
   const tree = useMemo(() => buildTree(filtered), [filtered]);
 
+  const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
+  const handleToggle = useCallback((path: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      saveCollapsed(next);
+      return next;
+    });
+  }, []);
+
   return (
     <div className="file-tree">
       <div className="file-tree-header">
@@ -263,6 +292,8 @@ export function FileTree({ onSelect, selectedFile, onFileCountChange, onFilesLoa
             depth={0}
             selectedFile={selectedFile}
             onSelect={onSelect}
+            collapsed={collapsed}
+            onToggle={handleToggle}
           />
         ))}
       </div>
