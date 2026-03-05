@@ -475,10 +475,10 @@ export const setupCommand = new Command('setup')
           `${chalk.dim(`${importResult.skipped.length} unchanged`)}`,
         );
 
-        // Create symlinks
-        console.log(chalk.dim('    Creating symlinks...'));
-        const symlinkResult = await adapter.createSymlinks(claudeDir);
-        console.log(`    ${chalk.green(`${symlinkResult.created.length} symlinks`)}`);
+        // Copy files to workspace
+        console.log(chalk.dim('    Syncing to workspace...'));
+        const copyResult = await adapter.copyToWorkspace(claudeDir);
+        console.log(`    ${chalk.green(`${copyResult.copied.length} files synced`)}`);
 
         config!.adapters.claude.enabled = true;
         config!.adapters.claude.claudeDir = claudeDir;
@@ -514,9 +514,9 @@ export const setupCommand = new Command('setup')
           `${chalk.dim(`${importResult.skipped.length} unchanged`)}`,
         );
 
-        console.log(chalk.dim('    Creating symlinks...'));
-        const symlinkResult = await adapter.createSymlinks(openclawDir);
-        console.log(`    ${chalk.green(`${symlinkResult.created.length} symlinks`)}`);
+        console.log(chalk.dim('    Syncing to workspace...'));
+        const copyResult = await adapter.copyToWorkspace(openclawDir);
+        console.log(`    ${chalk.green(`${copyResult.copied.length} files synced`)}`);
 
         config!.adapters.openclaw.enabled = true;
         config!.adapters.openclaw.workspacePath = openclawDir;
@@ -566,10 +566,10 @@ export const setupCommand = new Command('setup')
               console.log(`    ${chalk.green(`${importResult.imported.length} files imported to vault`)}`);
             }
 
-            // Create symlinks from target -> vault
-            console.log(chalk.dim('    Creating symlinks...'));
-            const symlinkResult = await mirrorAdapter.createSymlinks(resolved);
-            console.log(`    ${chalk.green(`${symlinkResult.created.length} symlinks`)}`);
+            // Copy files to target
+            console.log(chalk.dim('    Syncing to target...'));
+            const copyResult = await mirrorAdapter.copyToWorkspace(resolved);
+            console.log(`    ${chalk.green(`${copyResult.copied.length} files synced`)}`);
 
             config!.adapters.mirror.enabled = true;
             config!.adapters.mirror.targetPath = resolved;
@@ -764,9 +764,9 @@ export const setupCommand = new Command('setup')
         const targetPath = config!.adapters.mirror.targetPath;
 
         await mirrorAdapter.syncBack(targetPath);
-        const initial = await mirrorAdapter.refreshSymlinks(targetPath);
-        if (initial.created.length > 0) {
-          console.log(chalk.dim(`  Mirror: ${initial.created.length} new symlinks`));
+        const initial = await mirrorAdapter.refreshCopies(targetPath);
+        if (initial.copied.length > 0) {
+          console.log(chalk.dim(`  Mirror: ${initial.copied.length} files synced`));
         }
 
         mirrorWatcher = new FileWatcher(targetPath, config!.sync.debounceMs);
@@ -785,7 +785,7 @@ export const setupCommand = new Command('setup')
         mirrorInterval = setInterval(async () => {
           try {
             await mirrorAdapter.syncBack(targetPath);
-            await mirrorAdapter.refreshSymlinks(targetPath);
+            await mirrorAdapter.syncFromVault(targetPath);
           } catch {
             // Non-critical
           }
@@ -824,6 +824,7 @@ export const setupCommand = new Command('setup')
         openclawInterval = setInterval(async () => {
           try {
             await openclawAdapter.syncBack(workspacePath);
+            await openclawAdapter.syncFromVault(workspacePath);
           } catch {
             // Non-critical
           }
@@ -861,6 +862,7 @@ export const setupCommand = new Command('setup')
         claudeInterval = setInterval(async () => {
           try {
             await claudeAdapter.syncBack(claudeDir);
+            await claudeAdapter.syncFromVault(claudeDir);
           } catch {
             // Non-critical
           }

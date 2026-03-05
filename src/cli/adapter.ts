@@ -188,7 +188,7 @@ function createAdapterSubcommands(agentName: string, displayName: string): Comma
 
   cmd
     .command('init')
-    .description(`Import and symlink ${displayName} workspace`)
+    .description(`Import and sync ${displayName} workspace`)
     .action(async () => {
       try {
         if (!(await isInitialized())) {
@@ -287,14 +287,14 @@ function createAdapterSubcommands(agentName: string, displayName: string): Comma
           }
         }
 
-        // Create symlinks
-        console.log(chalk.dim('Creating symlinks...'));
-        const symlinkResult = await adapter.createSymlinks(workspacePath);
+        // Copy files to workspace
+        console.log(chalk.dim('Syncing files to workspace...'));
+        const copyResult = await adapter.copyToWorkspace(workspacePath);
 
-        console.log(`  ${chalk.green(`${symlinkResult.created.length} symlinks created`)}`);
+        console.log(`  ${chalk.green(`${copyResult.copied.length} files synced`)}`);
 
-        if (symlinkResult.errors.length > 0) {
-          for (const err of symlinkResult.errors) {
+        if (copyResult.errors.length > 0) {
+          for (const err of copyResult.errors) {
             console.log(`  ${chalk.red('Error:')} ${err}`);
           }
         }
@@ -323,7 +323,7 @@ function createAdapterSubcommands(agentName: string, displayName: string): Comma
 
   cmd
     .command('status')
-    .description(`Show ${displayName} symlink status`)
+    .description(`Show ${displayName} sync status`)
     .action(async () => {
       try {
         if (!(await isInitialized())) {
@@ -341,19 +341,19 @@ function createAdapterSubcommands(agentName: string, displayName: string): Comma
         }
 
         const workspacePath = getWorkspacePath(agentName, config);
-        const result = await adapter.verifySymlinks(workspacePath);
+        const result = await adapter.verifySync(workspacePath);
 
         console.log('');
         console.log(chalk.bold(`${displayName} Adapter Status`));
         console.log(chalk.dim('─'.repeat(40)));
         console.log(`  ${agentName === 'mirror' ? 'Target:' : 'Workspace:'} ${workspacePath}`);
-        console.log(`  Valid symlinks:  ${chalk.green(String(result.valid.length))}`);
-        console.log(`  Broken symlinks: ${chalk.red(String(result.broken.length))}`);
+        console.log(`  Synced files: ${chalk.green(String(result.synced.length))}`);
+        console.log(`  Stale files:  ${chalk.red(String(result.stale.length))}`);
 
-        if (result.broken.length > 0) {
+        if (result.stale.length > 0) {
           console.log('');
-          console.log(chalk.red('  Broken:'));
-          for (const b of result.broken) {
+          console.log(chalk.red('  Stale:'));
+          for (const b of result.stale) {
             console.log(`    - ${b}`);
           }
         }
@@ -366,7 +366,7 @@ function createAdapterSubcommands(agentName: string, displayName: string): Comma
 
   cmd
     .command('remove')
-    .description(`Remove ${displayName} symlinks and restore originals`)
+    .description(`Disconnect ${displayName} adapter`)
     .action(async () => {
       try {
         if (!(await isInitialized())) {
@@ -384,13 +384,13 @@ function createAdapterSubcommands(agentName: string, displayName: string): Comma
 
         const workspacePath = getWorkspacePath(agentName, config);
 
-        console.log(chalk.dim('Removing symlinks and restoring originals...'));
-        await adapter.removeSymlinks(workspacePath);
+        console.log(chalk.dim('Disconnecting adapter...'));
+        await adapter.disconnect(workspacePath);
 
         setAdapterEnabled(agentName, config, false);
         await saveConfig(config);
 
-        console.log(chalk.green(`${displayName} adapter removed.`));
+        console.log(chalk.green(`${displayName} adapter disconnected. Workspace files are unchanged.`));
       } catch (err) {
         console.error(chalk.red(`Error: ${err instanceof Error ? err.message : String(err)}`));
         process.exit(1);

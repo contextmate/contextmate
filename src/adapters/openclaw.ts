@@ -1,8 +1,8 @@
-import { readFile, readdir, access, stat, unlink, copyFile, mkdir, writeFile } from 'node:fs/promises';
+import { readFile, readdir, access, stat, copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { join, relative, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import picomatch from 'picomatch';
-import { BaseAdapter, type AdapterOptions, type ImportResult, type SymlinkResult } from './base.js';
+import { BaseAdapter, type AdapterOptions, type ImportResult, type CopyResult } from './base.js';
 
 export class OpenClawAdapter extends BaseAdapter {
   private extraFiles: string[];
@@ -62,22 +62,24 @@ export class OpenClawAdapter extends BaseAdapter {
     return result;
   }
 
-  async createSymlinks(workspacePath: string): Promise<SymlinkResult> {
-    const result: SymlinkResult = { created: [], errors: [] };
-    const filesToLink = await this.discoverFiles(workspacePath);
+  async copyToWorkspace(workspacePath: string): Promise<CopyResult> {
+    const result: CopyResult = { copied: [], errors: [] };
+    const vaultFiles = await this.discoverVaultFiles();
 
-    for (const filePath of filesToLink) {
-      const relativeSrc = relative(workspacePath, filePath);
-      const vaultRelative = join('openclaw', relativeSrc);
+    for (const vaultRelative of vaultFiles) {
+      const relativeSrc = vaultRelative.replace(/^openclaw\//, '');
+      const destPath = join(workspacePath, relativeSrc);
       const vaultPath = join(this.vaultPath, vaultRelative);
 
       try {
-        if (!(await this.isSymlink(filePath))) {
-          await this.backupFile(filePath, 'openclaw');
+        // Skip if workspace file already matches vault
+        if (await this.filesMatch(vaultPath, destPath)) {
+          continue;
         }
 
-        await this.safeSymlink(vaultPath, filePath);
-        result.created.push(relativeSrc);
+        await mkdir(dirname(destPath), { recursive: true });
+        await copyFile(vaultPath, destPath);
+        result.copied.push(relativeSrc);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         result.errors.push(`${relativeSrc}: ${message}`);
@@ -87,57 +89,29 @@ export class OpenClawAdapter extends BaseAdapter {
     return result;
   }
 
-  async verifySymlinks(workspacePath: string): Promise<{ valid: string[]; broken: string[] }> {
-    const valid: string[] = [];
-    const broken: string[] = [];
-    const filesToCheck = await this.discoverFiles(workspacePath);
+  async verifySync(workspacePath: string): Promise<{ synced: string[]; stale: string[] }> {
+    const synced: string[] = [];
+    const stale: string[] = [];
+    const vaultFiles = await this.discoverVaultFiles();
 
-    for (const filePath of filesToCheck) {
-      const relativeSrc = relative(workspacePath, filePath);
+    for (const vaultRelative of vaultFiles) {
+      const relativeSrc = vaultRelative.replace(/^openclaw\//, '');
+      const workspaceFile = join(workspacePath, relativeSrc);
+      const vaultFile = join(this.vaultPath, vaultRelative);
 
-      if (await this.isSymlink(filePath)) {
-        try {
-          await stat(filePath);
-          valid.push(relativeSrc);
-        } catch {
-          broken.push(relativeSrc);
-        }
+      if (await this.filesMatch(workspaceFile, vaultFile)) {
+        synced.push(relativeSrc);
       } else {
-        broken.push(relativeSrc);
+        stale.push(relativeSrc);
       }
     }
 
-    return { valid, broken };
+    return { synced, stale };
   }
 
-  async removeSymlinks(workspacePath: string): Promise<void> {
-    const filesToRestore = await this.discoverVaultFiles();
-
-    for (const vaultRelative of filesToRestore) {
-      const relativeSrc = vaultRelative.replace(/^openclaw\//, '');
-      const originalPath = join(workspacePath, relativeSrc);
-
-      if (!(await this.isSymlink(originalPath))) {
-        continue;
-      }
-
-      await unlink(originalPath);
-
-      // Try to restore from backup
-      const backupPath = join(this.backupsPath, 'openclaw', relative('/', originalPath));
-      try {
-        await mkdir(dirname(originalPath), { recursive: true });
-        await copyFile(backupPath, originalPath);
-      } catch {
-        // No backup -- move vault file back
-        const vaultFilePath = join(this.vaultPath, vaultRelative);
-        try {
-          await copyFile(vaultFilePath, originalPath);
-        } catch {
-          // Vault file also missing
-        }
-      }
-    }
+  async disconnect(_workspacePath: string): Promise<void> {
+    // Workspace files are real copies — nothing to restore.
+    // Config disabling is handled by the caller.
   }
 
   async syncBack(workspacePath: string): Promise<{ synced: string[] }> {
@@ -145,10 +119,6 @@ export class OpenClawAdapter extends BaseAdapter {
     const filesToCheck = await this.discoverFiles(workspacePath);
 
     for (const filePath of filesToCheck) {
-      // Skip if it's still a valid symlink
-      if (await this.isSymlink(filePath)) continue;
-
-      // Regular file where a symlink should be — editor/tool broke the symlink
       const relativeSrc = relative(workspacePath, filePath);
       const vaultRelative = join('openclaw', relativeSrc);
       const vaultFilePath = join(this.vaultPath, vaultRelative);
@@ -160,9 +130,6 @@ export class OpenClawAdapter extends BaseAdapter {
         try {
           const vaultContent = await readFile(vaultFilePath);
           if (Buffer.compare(workspaceContent, vaultContent) === 0) {
-            // Content is the same, just re-create the symlink
-            await unlink(filePath);
-            await this.safeSymlink(vaultFilePath, filePath);
             continue;
           }
         } catch {
@@ -173,13 +140,35 @@ export class OpenClawAdapter extends BaseAdapter {
         await mkdir(dirname(vaultFilePath), { recursive: true });
         await writeFile(vaultFilePath, workspaceContent);
 
-        // Replace the regular file with a symlink back to vault
-        await unlink(filePath);
-        await this.safeSymlink(vaultFilePath, filePath);
-
         synced.push(vaultRelative);
       } catch {
         // Skip unreadable files
+      }
+    }
+
+    return { synced };
+  }
+
+  async syncFromVault(workspacePath: string): Promise<{ synced: string[] }> {
+    const synced: string[] = [];
+    const vaultFiles = await this.discoverVaultFiles();
+
+    for (const vaultRelative of vaultFiles) {
+      const relativeSrc = vaultRelative.replace(/^openclaw\//, '');
+      const destPath = join(workspacePath, relativeSrc);
+      const vaultPath = join(this.vaultPath, vaultRelative);
+
+      try {
+        // Skip if workspace file already matches vault
+        if (await this.filesMatch(vaultPath, destPath)) {
+          continue;
+        }
+
+        await mkdir(dirname(destPath), { recursive: true });
+        await copyFile(vaultPath, destPath);
+        synced.push(relativeSrc);
+      } catch {
+        // Skip errors
       }
     }
 

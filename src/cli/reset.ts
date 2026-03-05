@@ -37,7 +37,7 @@ export const resetCommand = new Command('reset')
       console.log(chalk.bold.red('ContextMate Reset'));
       console.log('');
       console.log('This will:');
-      console.log(`  - Remove all adapter symlinks (Claude Code, OpenClaw)`);
+      console.log(`  - Disconnect all adapters (Claude Code, OpenClaw)`);
 
       // Show userId if registered
       let userId: string | null = null;
@@ -75,21 +75,21 @@ export const resetCommand = new Command('reset')
       };
 
       try {
-        console.log(chalk.dim('Removing Claude Code symlinks...'));
+        console.log(chalk.dim('Disconnecting Claude Code adapter...'));
         const adapter = getAdapter('claude', adapterOpts);
-        await adapter.removeSymlinks(config.adapters.claude.claudeDir);
-        console.log(chalk.green('  Claude Code symlinks removed.'));
+        await adapter.disconnect(config.adapters.claude.claudeDir);
+        console.log(chalk.green('  Claude Code adapter disconnected.'));
       } catch (err) {
-        console.log(chalk.yellow(`  Warning: Could not remove Claude symlinks (${err instanceof Error ? err.message : String(err)})`));
+        console.log(chalk.yellow(`  Warning: Could not disconnect Claude adapter (${err instanceof Error ? err.message : String(err)})`));
       }
 
       try {
-        console.log(chalk.dim('Removing OpenClaw symlinks...'));
+        console.log(chalk.dim('Disconnecting OpenClaw adapter...'));
         const adapter = getAdapter('openclaw', adapterOpts);
-        await adapter.removeSymlinks(config.adapters.openclaw.workspacePath);
-        console.log(chalk.green('  OpenClaw symlinks removed.'));
+        await adapter.disconnect(config.adapters.openclaw.workspacePath);
+        console.log(chalk.green('  OpenClaw adapter disconnected.'));
       } catch (err) {
-        console.log(chalk.yellow(`  Warning: Could not remove OpenClaw symlinks (${err instanceof Error ? err.message : String(err)})`));
+        console.log(chalk.yellow(`  Warning: Could not disconnect OpenClaw adapter (${err instanceof Error ? err.message : String(err)})`));
       }
 
       // 2. Delete the entire ~/.contextmate directory

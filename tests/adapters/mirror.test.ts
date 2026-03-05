@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { MirrorAdapter } from '../../src/adapters/mirror.js';
 import { tmpdir } from 'node:os';
-import { mkdtemp, rm, writeFile, mkdir, readFile, lstat, unlink, symlink } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile, mkdir, readFile, lstat } from 'node:fs/promises';
 import { join } from 'node:path';
 
 let tmpDir: string;
@@ -39,23 +39,24 @@ describe('MirrorAdapter', () => {
     expect(result).toBeNull();
   });
 
-  it('createSymlinks() symlinks all vault files when no include filter', async () => {
+  it('copyToWorkspace() copies all vault files as regular files when no include filter', async () => {
     await createMockVault(vaultPath);
     const adapter = new MirrorAdapter({ vaultPath, backupsPath });
 
-    const result = await adapter.createSymlinks(targetPath);
+    const result = await adapter.copyToWorkspace(targetPath);
     expect(result.errors.length).toBe(0);
-    expect(result.created.length).toBe(4);
+    expect(result.copied.length).toBe(4);
 
-    // Verify symlinks exist and are readable
+    // Verify files are regular files (not symlinks) and readable
     const stats = await lstat(join(targetPath, 'openclaw', 'MEMORY.md'));
-    expect(stats.isSymbolicLink()).toBe(true);
+    expect(stats.isFile()).toBe(true);
+    expect(stats.isSymbolicLink()).toBe(false);
 
     const content = await readFile(join(targetPath, 'openclaw', 'MEMORY.md'), 'utf-8');
     expect(content).toContain('Agent memory content');
   });
 
-  it('createSymlinks() only symlinks files matching include patterns', async () => {
+  it('copyToWorkspace() only copies files matching include patterns', async () => {
     await createMockVault(vaultPath);
     const adapter = new MirrorAdapter({
       vaultPath,
@@ -63,10 +64,10 @@ describe('MirrorAdapter', () => {
       include: ['openclaw/**'],
     });
 
-    const result = await adapter.createSymlinks(targetPath);
+    const result = await adapter.copyToWorkspace(targetPath);
     expect(result.errors.length).toBe(0);
     // Only openclaw/ files (3), not skills/ (1)
-    expect(result.created.length).toBe(3);
+    expect(result.copied.length).toBe(3);
 
     // skills/ should not be present
     let hasSkill = false;
@@ -80,7 +81,6 @@ describe('MirrorAdapter', () => {
   });
 
   it('import() copies existing files from target to vault', async () => {
-    // Put files in target directory
     await writeFile(join(targetPath, 'README.md'), '# Readme');
     await mkdir(join(targetPath, 'docs'), { recursive: true });
     await writeFile(join(targetPath, 'docs', 'guide.md'), '# Guide');
@@ -91,7 +91,6 @@ describe('MirrorAdapter', () => {
     expect(result.errors.length).toBe(0);
     expect(result.imported.length).toBe(2);
 
-    // Verify files were copied to vault root (no prefix)
     const content = await readFile(join(vaultPath, 'README.md'), 'utf-8');
     expect(content).toBe('# Readme');
 
@@ -100,7 +99,6 @@ describe('MirrorAdapter', () => {
   });
 
   it('import() respects include filters', async () => {
-    // Put files in target directory
     await mkdir(join(targetPath, 'openclaw'), { recursive: true });
     await writeFile(join(targetPath, 'openclaw', 'MEMORY.md'), '# Memory');
     await writeFile(join(targetPath, 'unrelated.txt'), 'should be excluded');
@@ -113,16 +111,12 @@ describe('MirrorAdapter', () => {
     const result = await adapter.import(targetPath);
 
     expect(result.imported).toContain(join('openclaw', 'MEMORY.md'));
-    // unrelated.txt should NOT have been imported
     const importedPaths = [...result.imported, ...result.skipped];
     expect(importedPaths).not.toContain('unrelated.txt');
   });
 
   it('import() skips identical content', async () => {
-    // Pre-populate vault
     await writeFile(join(vaultPath, 'README.md'), '# Readme');
-
-    // Put same content in target
     await writeFile(join(targetPath, 'README.md'), '# Readme');
 
     const adapter = new MirrorAdapter({ vaultPath, backupsPath });
@@ -132,54 +126,43 @@ describe('MirrorAdapter', () => {
     expect(result.skipped.length).toBe(1);
   });
 
-  it('verifySymlinks() identifies valid and broken symlinks', async () => {
+  it('verifySync() identifies synced and stale files', async () => {
     await createMockVault(vaultPath);
     const adapter = new MirrorAdapter({ vaultPath, backupsPath });
 
-    await adapter.createSymlinks(targetPath);
-    const result = await adapter.verifySymlinks(targetPath);
+    await adapter.copyToWorkspace(targetPath);
+    const result = await adapter.verifySync(targetPath);
 
-    expect(result.valid.length).toBe(4);
-    expect(result.broken.length).toBe(0);
+    expect(result.synced.length).toBe(4);
+    expect(result.stale.length).toBe(0);
   });
 
-  it('removeSymlinks() restores files from vault copies', async () => {
+  it('disconnect() leaves workspace files intact', async () => {
     await createMockVault(vaultPath);
     const adapter = new MirrorAdapter({ vaultPath, backupsPath });
 
-    await adapter.createSymlinks(targetPath);
-
-    // Verify it's a symlink
-    let stats = await lstat(join(targetPath, 'openclaw', 'MEMORY.md'));
-    expect(stats.isSymbolicLink()).toBe(true);
-
-    await adapter.removeSymlinks(targetPath);
-
-    // Should now be a regular file (restored from vault copy)
-    stats = await lstat(join(targetPath, 'openclaw', 'MEMORY.md'));
-    expect(stats.isSymbolicLink()).toBe(false);
-    expect(stats.isFile()).toBe(true);
+    await adapter.copyToWorkspace(targetPath);
+    await adapter.disconnect(targetPath);
 
     const content = await readFile(join(targetPath, 'openclaw', 'MEMORY.md'), 'utf-8');
     expect(content).toContain('Agent memory content');
   });
 
-  it('refreshSymlinks() only creates missing symlinks', async () => {
+  it('refreshCopies() only copies new or stale files', async () => {
     await createMockVault(vaultPath);
     const adapter = new MirrorAdapter({ vaultPath, backupsPath });
 
-    // Create initial symlinks
-    await adapter.createSymlinks(targetPath);
+    // Initial copy
+    await adapter.copyToWorkspace(targetPath);
 
     // Add a new file to vault
     await writeFile(join(vaultPath, 'openclaw', 'HEARTBEAT.md'), '# Heartbeat');
 
-    // Refresh should only create the new one
-    const result = await adapter.refreshSymlinks(targetPath);
-    expect(result.created.length).toBe(1);
-    expect(result.created[0]).toBe(join('openclaw', 'HEARTBEAT.md'));
+    // Refresh should only copy the new one
+    const result = await adapter.refreshCopies(targetPath);
+    expect(result.copied.length).toBe(1);
+    expect(result.copied[0]).toBe(join('openclaw', 'HEARTBEAT.md'));
 
-    // Verify the new symlink works
     const content = await readFile(join(targetPath, 'openclaw', 'HEARTBEAT.md'), 'utf-8');
     expect(content).toContain('Heartbeat');
   });
@@ -189,24 +172,22 @@ describe('MirrorAdapter', () => {
     const badTarget = join(vaultPath, 'mirror-output');
     await mkdir(badTarget, { recursive: true });
 
-    await expect(adapter.createSymlinks(badTarget)).rejects.toThrow(
+    await expect(adapter.copyToWorkspace(badTarget)).rejects.toThrow(
       'Mirror target cannot be inside the vault',
     );
   });
 
-  it('syncBack() detects broken symlinks and copies content to vault', async () => {
+  it('syncBack() detects workspace changes and copies content to vault', async () => {
     await createMockVault(vaultPath);
     const adapter = new MirrorAdapter({ vaultPath, backupsPath });
 
-    // Create symlinks
-    await adapter.createSymlinks(targetPath);
+    // Copy files to target
+    await adapter.copyToWorkspace(targetPath);
 
-    // Simulate editor atomic save: replace symlink with regular file
+    // Edit a file in the target
     const filePath = join(targetPath, 'openclaw', 'MEMORY.md');
-    await unlink(filePath);
     await writeFile(filePath, '# Updated Memory\nEdited by user');
 
-    // syncBack should detect the broken symlink and copy to vault
     const result = await adapter.syncBack(targetPath);
     expect(result.synced.length).toBe(1);
     expect(result.synced[0]).toBe(join('openclaw', 'MEMORY.md'));
@@ -215,52 +196,47 @@ describe('MirrorAdapter', () => {
     const vaultContent = await readFile(join(vaultPath, 'openclaw', 'MEMORY.md'), 'utf-8');
     expect(vaultContent).toBe('# Updated Memory\nEdited by user');
 
-    // Target file should be a symlink again
+    // Target file should still be a regular file
     const stats = await lstat(filePath);
-    expect(stats.isSymbolicLink()).toBe(true);
+    expect(stats.isFile()).toBe(true);
+    expect(stats.isSymbolicLink()).toBe(false);
   });
 
-  it('syncBack() re-creates symlink without syncing when content is identical', async () => {
+  it('syncBack() skips files with identical content', async () => {
     await createMockVault(vaultPath);
     const adapter = new MirrorAdapter({ vaultPath, backupsPath });
 
-    await adapter.createSymlinks(targetPath);
+    await adapter.copyToWorkspace(targetPath);
 
-    // Replace symlink with regular file containing same content
-    const filePath = join(targetPath, 'openclaw', 'MEMORY.md');
-    const originalContent = await readFile(filePath, 'utf-8');
-    await unlink(filePath);
-    await writeFile(filePath, originalContent);
-
-    // syncBack should NOT report it as synced (content unchanged)
+    // No changes — all files identical
     const result = await adapter.syncBack(targetPath);
     expect(result.synced.length).toBe(0);
-
-    // But the symlink should be restored
-    const stats = await lstat(filePath);
-    expect(stats.isSymbolicLink()).toBe(true);
   });
 
-  it('syncBack() ignores files that are still valid symlinks', async () => {
+  it('syncFromVault() copies vault changes to target', async () => {
     await createMockVault(vaultPath);
     const adapter = new MirrorAdapter({ vaultPath, backupsPath });
 
-    await adapter.createSymlinks(targetPath);
+    await adapter.copyToWorkspace(targetPath);
 
-    // No changes — all symlinks intact
-    const result = await adapter.syncBack(targetPath);
-    expect(result.synced.length).toBe(0);
+    // Simulate a remote change arriving in the vault
+    await writeFile(join(vaultPath, 'openclaw', 'MEMORY.md'), '# Memory\nUpdated from cloud');
+
+    const result = await adapter.syncFromVault(targetPath);
+    expect(result.synced.length).toBe(1);
+
+    const content = await readFile(join(targetPath, 'openclaw', 'MEMORY.md'), 'utf-8');
+    expect(content).toContain('Updated from cloud');
   });
 
   it('throws error when vault is inside target', async () => {
-    // Create adapter where vault is inside target
     const outerTarget = tmpDir;
     const adapter = new MirrorAdapter({
       vaultPath: join(outerTarget, 'vault'),
       backupsPath,
     });
 
-    await expect(adapter.createSymlinks(outerTarget)).rejects.toThrow(
+    await expect(adapter.copyToWorkspace(outerTarget)).rejects.toThrow(
       'Mirror target cannot be inside the vault',
     );
   });
