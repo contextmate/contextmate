@@ -163,12 +163,12 @@ const startCommand = new Command('start')
         if (backed.synced.length > 0) {
           console.log(chalk.dim(`  Mirror: ${backed.synced.length} file${backed.synced.length === 1 ? '' : 's'} synced back`));
         }
-        const initial = await mirrorAdapter.refreshSymlinks(targetPath);
-        if (initial.created.length > 0) {
-          console.log(chalk.dim(`  Mirror: ${initial.created.length} new symlinks`));
+        const initial = await mirrorAdapter.refreshCopies(targetPath);
+        if (initial.copied.length > 0) {
+          console.log(chalk.dim(`  Mirror: ${initial.copied.length} files synced`));
         }
 
-        // Watch the mirror target for real-time detection of broken symlinks
+        // Watch the mirror target for real-time change detection
         mirrorWatcher = new FileWatcher(targetPath, config.sync.debounceMs);
         mirrorWatcher.start();
 
@@ -185,11 +185,11 @@ const startCommand = new Command('start')
         mirrorWatcher.on('file-changed', () => void handleMirrorChange());
         mirrorWatcher.on('file-added', () => void handleMirrorChange());
 
-        // Periodic refresh for new vault files
+        // Periodic bidirectional sync
         mirrorInterval = setInterval(async () => {
           try {
             await mirrorAdapter.syncBack(targetPath);
-            await mirrorAdapter.refreshSymlinks(targetPath);
+            await mirrorAdapter.syncFromVault(targetPath);
           } catch {
             // Non-critical
           }
@@ -214,7 +214,7 @@ const startCommand = new Command('start')
           console.log(chalk.dim(`  OpenClaw: ${backed.synced.length} file${backed.synced.length === 1 ? '' : 's'} synced back`));
         }
 
-        // Watch OpenClaw workspace for broken symlinks
+        // Watch OpenClaw workspace for changes
         openclawWatcher = new FileWatcher(workspacePath, config.sync.debounceMs);
         openclawWatcher.start();
 
@@ -234,6 +234,7 @@ const startCommand = new Command('start')
         openclawInterval = setInterval(async () => {
           try {
             await openclawAdapter.syncBack(workspacePath);
+            await openclawAdapter.syncFromVault(workspacePath);
           } catch {
             // Non-critical
           }
@@ -257,7 +258,7 @@ const startCommand = new Command('start')
           console.log(chalk.dim(`  Claude: ${backed.synced.length} file${backed.synced.length === 1 ? '' : 's'} synced back`));
         }
 
-        // Watch Claude directory for broken symlinks
+        // Watch Claude directory for changes
         claudeWatcher = new FileWatcher(claudeDir, config.sync.debounceMs);
         claudeWatcher.start();
 
@@ -277,6 +278,7 @@ const startCommand = new Command('start')
         claudeInterval = setInterval(async () => {
           try {
             await claudeAdapter.syncBack(claudeDir);
+            await claudeAdapter.syncFromVault(claudeDir);
           } catch {
             // Non-critical
           }

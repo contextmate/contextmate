@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { OpenClawAdapter } from '../../src/adapters/openclaw.js';
 import { tmpdir } from 'node:os';
-import { mkdtemp, rm, writeFile, mkdir, readFile, lstat, unlink } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile, mkdir, readFile, lstat } from 'node:fs/promises';
 import { join } from 'node:path';
 
 let tmpDir: string;
@@ -38,12 +38,7 @@ afterEach(async () => {
 
 describe('OpenClawAdapter', () => {
   it('detect() returns null when workspace does not exist', async () => {
-    // detect() looks for ~/.openclaw/workspace which is not our tmpDir
-    // So by default it should return null (unless the user has one)
-    // We test with a known non-existent path by creating a fresh adapter
     const result = await adapter.detect();
-    // This tests the actual default path. If it exists on this machine,
-    // it would return a path. For a clean test, we just verify it returns string|null.
     expect(result === null || typeof result === 'string').toBe(true);
   });
 
@@ -52,7 +47,6 @@ describe('OpenClawAdapter', () => {
     expect(result.errors.length).toBe(0);
     expect(result.imported.length).toBeGreaterThan(0);
 
-    // Check that files were copied to vault under openclaw/ prefix
     const memoryContent = await readFile(join(vaultPath, 'openclaw', 'MEMORY.md'), 'utf-8');
     expect(memoryContent).toContain('Test memory content');
 
@@ -64,7 +58,6 @@ describe('OpenClawAdapter', () => {
   });
 
   it('import() handles missing optional files gracefully', async () => {
-    // Create a minimal workspace with only MEMORY.md (no IDENTITY, no skills, no memory dir)
     const minimalWs = join(tmpDir, 'minimal-workspace');
     await mkdir(minimalWs, { recursive: true });
     await writeFile(join(minimalWs, 'MEMORY.md'), '# Minimal');
@@ -76,65 +69,45 @@ describe('OpenClawAdapter', () => {
   });
 
   it('import() skips files with identical content', async () => {
-    // First import
     await adapter.import(workspacePath);
-    // Second import -- same content should be skipped
     const result = await adapter.import(workspacePath);
     expect(result.skipped.length).toBeGreaterThan(0);
     expect(result.imported.length).toBe(0);
   });
 
-  it('createSymlinks() creates working symlinks', async () => {
-    // First import files to vault
+  it('copyToWorkspace() copies vault files to workspace as regular files', async () => {
     await adapter.import(workspacePath);
-
-    const result = await adapter.createSymlinks(workspacePath);
+    const result = await adapter.copyToWorkspace(workspacePath);
     expect(result.errors.length).toBe(0);
-    expect(result.created.length).toBeGreaterThan(0);
 
-    // Check MEMORY.md is now a symlink
+    // Files should be regular files (not symlinks)
     const stats = await lstat(join(workspacePath, 'MEMORY.md'));
-    expect(stats.isSymbolicLink()).toBe(true);
+    expect(stats.isFile()).toBe(true);
+    expect(stats.isSymbolicLink()).toBe(false);
 
-    // The symlink should still be readable
     const content = await readFile(join(workspacePath, 'MEMORY.md'), 'utf-8');
     expect(content).toContain('Test memory content');
   });
 
-  it('verifySymlinks() identifies valid and broken symlinks', async () => {
-    // Import and create symlinks
+  it('verifySync() identifies synced and stale files', async () => {
     await adapter.import(workspacePath);
-    await adapter.createSymlinks(workspacePath);
-
-    const result = await adapter.verifySymlinks(workspacePath);
-    expect(result.valid.length).toBeGreaterThan(0);
-    expect(result.broken.length).toBe(0);
+    // Workspace and vault should be in sync after import (same content)
+    const result = await adapter.verifySync(workspacePath);
+    expect(result.synced.length).toBeGreaterThan(0);
+    expect(result.stale.length).toBe(0);
   });
 
-  it('removeSymlinks() restores original files', async () => {
-    // Import and create symlinks
+  it('disconnect() leaves workspace files intact', async () => {
     await adapter.import(workspacePath);
-    await adapter.createSymlinks(workspacePath);
+    await adapter.copyToWorkspace(workspacePath);
+    await adapter.disconnect(workspacePath);
 
-    // Verify MEMORY.md is a symlink
-    let stats = await lstat(join(workspacePath, 'MEMORY.md'));
-    expect(stats.isSymbolicLink()).toBe(true);
-
-    // Remove symlinks
-    await adapter.removeSymlinks(workspacePath);
-
-    // MEMORY.md should now be a regular file (restored from backup or vault copy)
-    stats = await lstat(join(workspacePath, 'MEMORY.md'));
-    expect(stats.isSymbolicLink()).toBe(false);
-    expect(stats.isFile()).toBe(true);
-
-    // Content should still be readable
+    // Files should still be readable
     const content = await readFile(join(workspacePath, 'MEMORY.md'), 'utf-8');
     expect(content).toContain('Test memory content');
   });
 
   it('import() discovers extraFiles from config', async () => {
-    // Create additional files in workspace
     await writeFile(join(workspacePath, 'HEARTBEAT.md'), '# Heartbeat\nAgent heartbeat');
     await writeFile(join(workspacePath, 'PLAYBOOK.md'), '# Playbook\nAgent playbook');
 
@@ -178,7 +151,6 @@ describe('OpenClawAdapter', () => {
     });
     const result = await extraAdapter.import(workspacePath);
 
-    // Should still import the base files without errors
     expect(result.errors.length).toBe(0);
     expect(result.imported.length).toBeGreaterThan(0);
   });
@@ -187,30 +159,20 @@ describe('OpenClawAdapter', () => {
     const extraAdapter = new OpenClawAdapter({
       vaultPath,
       backupsPath,
-      extraFiles: ['MEMORY.md'], // Already in the default list
+      extraFiles: ['MEMORY.md'],
     });
     const result = await extraAdapter.import(workspacePath);
 
-    // MEMORY.md should only appear once
     const memoryCount = result.imported.filter((f) => f === 'openclaw/MEMORY.md').length;
     expect(memoryCount).toBe(1);
   });
 
   describe('syncBack()', () => {
-    it('detects broken symlinks and syncs content back to vault', async () => {
+    it('detects workspace changes and syncs content to vault', async () => {
       await adapter.import(workspacePath);
-      await adapter.createSymlinks(workspacePath);
 
-      // Verify MEMORY.md is a symlink
-      let stats = await lstat(join(workspacePath, 'MEMORY.md'));
-      expect(stats.isSymbolicLink()).toBe(true);
-
-      // Simulate editor atomic save: delete symlink and write regular file
-      await unlink(join(workspacePath, 'MEMORY.md'));
+      // Edit the workspace file
       await writeFile(join(workspacePath, 'MEMORY.md'), '# Memory\nUpdated by editor');
-
-      stats = await lstat(join(workspacePath, 'MEMORY.md'));
-      expect(stats.isSymbolicLink()).toBe(false);
 
       const result = await adapter.syncBack(workspacePath);
       expect(result.synced.length).toBeGreaterThan(0);
@@ -220,34 +182,39 @@ describe('OpenClawAdapter', () => {
       const vaultContent = await readFile(join(vaultPath, 'openclaw', 'MEMORY.md'), 'utf-8');
       expect(vaultContent).toContain('Updated by editor');
 
-      // File should be a symlink again
-      stats = await lstat(join(workspacePath, 'MEMORY.md'));
-      expect(stats.isSymbolicLink()).toBe(true);
-    });
-
-    it('re-creates symlink when content is identical', async () => {
-      await adapter.import(workspacePath);
-      await adapter.createSymlinks(workspacePath);
-
-      // Simulate editor atomic save with same content
-      const originalContent = await readFile(join(workspacePath, 'MEMORY.md'), 'utf-8');
-      await unlink(join(workspacePath, 'MEMORY.md'));
-      await writeFile(join(workspacePath, 'MEMORY.md'), originalContent);
-
-      const result = await adapter.syncBack(workspacePath);
-      // Should not report as synced (content identical) but symlink should be restored
-      expect(result.synced.length).toBe(0);
-
+      // Workspace file should still be a regular file
       const stats = await lstat(join(workspacePath, 'MEMORY.md'));
-      expect(stats.isSymbolicLink()).toBe(true);
+      expect(stats.isFile()).toBe(true);
+      expect(stats.isSymbolicLink()).toBe(false);
     });
 
-    it('skips files that are still valid symlinks', async () => {
+    it('skips files with identical content', async () => {
       await adapter.import(workspacePath);
-      await adapter.createSymlinks(workspacePath);
 
-      // All files are symlinks, nothing to sync back
+      // No changes — content should match
       const result = await adapter.syncBack(workspacePath);
+      expect(result.synced.length).toBe(0);
+    });
+  });
+
+  describe('syncFromVault()', () => {
+    it('copies vault changes to workspace', async () => {
+      await adapter.import(workspacePath);
+
+      // Simulate a remote change arriving in the vault
+      await writeFile(join(vaultPath, 'openclaw', 'MEMORY.md'), '# Memory\nUpdated from cloud');
+
+      const result = await adapter.syncFromVault(workspacePath);
+      expect(result.synced.length).toBeGreaterThan(0);
+
+      const content = await readFile(join(workspacePath, 'MEMORY.md'), 'utf-8');
+      expect(content).toContain('Updated from cloud');
+    });
+
+    it('skips files already in sync', async () => {
+      await adapter.import(workspacePath);
+
+      const result = await adapter.syncFromVault(workspacePath);
       expect(result.synced.length).toBe(0);
     });
   });

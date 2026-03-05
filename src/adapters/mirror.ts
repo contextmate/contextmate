@@ -1,7 +1,7 @@
-import { readFile, readdir, stat, unlink, copyFile, mkdir, writeFile } from 'node:fs/promises';
+import { readFile, readdir, stat, copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { join, relative, dirname } from 'node:path';
 import picomatch from 'picomatch';
-import { BaseAdapter, type AdapterOptions, type ImportResult, type SymlinkResult } from './base.js';
+import { BaseAdapter, type AdapterOptions, type ImportResult, type CopyResult } from './base.js';
 
 export class MirrorAdapter extends BaseAdapter {
   private include: string[];
@@ -55,19 +55,24 @@ export class MirrorAdapter extends BaseAdapter {
     return result;
   }
 
-  async createSymlinks(targetPath: string): Promise<SymlinkResult> {
+  async copyToWorkspace(targetPath: string): Promise<CopyResult> {
     this.validatePaths(targetPath);
 
-    const result: SymlinkResult = { created: [], errors: [] };
+    const result: CopyResult = { copied: [], errors: [] };
     const vaultFiles = await this.discoverVaultFiles();
 
     for (const vaultRelative of vaultFiles) {
-      const linkPath = join(targetPath, vaultRelative);
+      const destPath = join(targetPath, vaultRelative);
       const vaultFilePath = join(this.vaultPath, vaultRelative);
 
       try {
-        await this.safeSymlink(vaultFilePath, linkPath);
-        result.created.push(vaultRelative);
+        if (await this.filesMatch(vaultFilePath, destPath)) {
+          continue;
+        }
+
+        await mkdir(dirname(destPath), { recursive: true });
+        await copyFile(vaultFilePath, destPath);
+        result.copied.push(vaultRelative);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         result.errors.push(`${vaultRelative}: ${message}`);
@@ -77,76 +82,48 @@ export class MirrorAdapter extends BaseAdapter {
     return result;
   }
 
-  async verifySymlinks(targetPath: string): Promise<{ valid: string[]; broken: string[] }> {
-    const valid: string[] = [];
-    const broken: string[] = [];
+  async verifySync(targetPath: string): Promise<{ synced: string[]; stale: string[] }> {
+    const synced: string[] = [];
+    const stale: string[] = [];
     const vaultFiles = await this.discoverVaultFiles();
 
     for (const vaultRelative of vaultFiles) {
-      const linkPath = join(targetPath, vaultRelative);
+      const targetFile = join(targetPath, vaultRelative);
+      const vaultFile = join(this.vaultPath, vaultRelative);
 
-      if (await this.isSymlink(linkPath)) {
-        try {
-          await stat(linkPath);
-          valid.push(vaultRelative);
-        } catch {
-          broken.push(vaultRelative);
-        }
+      if (await this.filesMatch(targetFile, vaultFile)) {
+        synced.push(vaultRelative);
       } else {
-        broken.push(vaultRelative);
+        stale.push(vaultRelative);
       }
     }
 
-    return { valid, broken };
+    return { synced, stale };
   }
 
-  async removeSymlinks(targetPath: string): Promise<void> {
-    const vaultFiles = await this.discoverVaultFiles();
-
-    for (const vaultRelative of vaultFiles) {
-      const linkPath = join(targetPath, vaultRelative);
-
-      if (!(await this.isSymlink(linkPath))) {
-        continue;
-      }
-
-      await unlink(linkPath);
-
-      // Restore from vault copy
-      try {
-        const vaultFilePath = join(this.vaultPath, vaultRelative);
-        await mkdir(dirname(linkPath), { recursive: true });
-        await copyFile(vaultFilePath, linkPath);
-      } catch {
-        // Nothing to restore
-      }
-    }
+  async disconnect(_targetPath: string): Promise<void> {
+    // Workspace files are real copies — nothing to restore.
   }
 
-  async refreshSymlinks(targetPath: string): Promise<SymlinkResult> {
+  async refreshCopies(targetPath: string): Promise<CopyResult> {
     this.validatePaths(targetPath);
 
-    const result: SymlinkResult = { created: [], errors: [] };
+    const result: CopyResult = { copied: [], errors: [] };
     const vaultFiles = await this.discoverVaultFiles();
 
     for (const vaultRelative of vaultFiles) {
-      const linkPath = join(targetPath, vaultRelative);
-
-      // Skip if valid symlink already exists
-      if (await this.isSymlink(linkPath)) {
-        try {
-          await stat(linkPath);
-          continue;
-        } catch {
-          // Broken symlink, recreate
-        }
-      }
-
+      const destPath = join(targetPath, vaultRelative);
       const vaultFilePath = join(this.vaultPath, vaultRelative);
 
       try {
-        await this.safeSymlink(vaultFilePath, linkPath);
-        result.created.push(vaultRelative);
+        // Skip if already in sync
+        if (await this.filesMatch(vaultFilePath, destPath)) {
+          continue;
+        }
+
+        await mkdir(dirname(destPath), { recursive: true });
+        await copyFile(vaultFilePath, destPath);
+        result.copied.push(vaultRelative);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         result.errors.push(`${vaultRelative}: ${message}`);
@@ -161,25 +138,16 @@ export class MirrorAdapter extends BaseAdapter {
     const targetFiles = await this.walkDir(targetPath, targetPath);
 
     for (const relativePath of targetFiles) {
-      const linkPath = join(targetPath, relativePath);
-
-      // Skip if it's still a valid symlink — no editor breakage
-      if (await this.isSymlink(linkPath)) continue;
-
-      // This is a regular file where a symlink should be.
-      // The editor broke the symlink on save.
+      const filePath = join(targetPath, relativePath);
       const vaultFilePath = join(this.vaultPath, relativePath);
 
       try {
-        const targetContent = await readFile(linkPath);
+        const targetContent = await readFile(filePath);
 
         // Compare with vault — skip if identical
         try {
           const vaultContent = await readFile(vaultFilePath);
           if (Buffer.compare(targetContent, vaultContent) === 0) {
-            // Content is the same, just re-create the symlink
-            await unlink(linkPath);
-            await this.safeSymlink(vaultFilePath, linkPath);
             continue;
           }
         } catch {
@@ -190,13 +158,33 @@ export class MirrorAdapter extends BaseAdapter {
         await mkdir(dirname(vaultFilePath), { recursive: true });
         await writeFile(vaultFilePath, targetContent);
 
-        // Replace the regular file with a symlink back to vault
-        await unlink(linkPath);
-        await this.safeSymlink(vaultFilePath, linkPath);
-
         synced.push(relativePath);
       } catch {
         // Skip unreadable files
+      }
+    }
+
+    return { synced };
+  }
+
+  async syncFromVault(targetPath: string): Promise<{ synced: string[] }> {
+    const synced: string[] = [];
+    const vaultFiles = await this.discoverVaultFiles();
+
+    for (const vaultRelative of vaultFiles) {
+      const destPath = join(targetPath, vaultRelative);
+      const vaultFilePath = join(this.vaultPath, vaultRelative);
+
+      try {
+        if (await this.filesMatch(vaultFilePath, destPath)) {
+          continue;
+        }
+
+        await mkdir(dirname(destPath), { recursive: true });
+        await copyFile(vaultFilePath, destPath);
+        synced.push(vaultRelative);
+      } catch {
+        // Skip errors
       }
     }
 

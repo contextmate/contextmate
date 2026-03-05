@@ -1,4 +1,4 @@
-export { BaseAdapter, type AdapterOptions, type ImportResult, type SymlinkResult } from './base.js';
+export { BaseAdapter, type AdapterOptions, type ImportResult, type CopyResult } from './base.js';
 export { OpenClawAdapter } from './openclaw.js';
 export { ClaudeCodeAdapter } from './claude.js';
 export { MirrorAdapter } from './mirror.js';

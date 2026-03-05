@@ -41,7 +41,7 @@ export class SyncEngine {
     this.stateDb = new SyncStateDB(dbPath);
 
     // Start file watcher
-    this.watcher = new FileWatcher(this.config.vault.path, this.config.sync.debounceMs, { followSymlinks: true });
+    this.watcher = new FileWatcher(this.config.vault.path, this.config.sync.debounceMs);
     this.watcher.start();
 
     // Wire up local file events BEFORE syncAll so no events are lost
