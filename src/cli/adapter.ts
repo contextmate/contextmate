@@ -100,9 +100,8 @@ async function pushDeviceSettings(config: ContextMateConfig): Promise<void> {
     const settings = {
       scanPaths: config.adapters.claude.scanPaths,
       adapters: {
-        claude: config.adapters.claude.enabled,
-        openclaw: config.adapters.openclaw.enabled,
-        mirror: config.adapters.mirror.enabled,
+        claude: { enabled: config.adapters.claude.enabled, syncDirection: 'send-receive' },
+        openclaw: { enabled: config.adapters.openclaw.enabled, syncDirection: 'send-receive' },
       },
     };
 
@@ -138,7 +137,6 @@ function getAdapterOptions(agentName: string, config: ContextMateConfig) {
     vaultPath: config.vault.path,
     backupsPath: getBackupsPath(),
     scanPaths: config.adapters.claude.scanPaths,
-    include: config.adapters.mirror.include,
   };
 }
 
@@ -150,8 +148,6 @@ function getWorkspacePath(agentName: string, config: ContextMateConfig): string 
     }
     case 'claude':
       return config.adapters.claude.claudeDir;
-    case 'mirror':
-      return config.adapters.mirror.targetPath;
     default:
       return '';
   }
@@ -163,8 +159,6 @@ function isAdapterEnabled(agentName: string, config: ContextMateConfig): boolean
       return config.adapters.openclaw.enabled;
     case 'claude':
       return config.adapters.claude.enabled;
-    case 'mirror':
-      return config.adapters.mirror.enabled;
     default:
       return false;
   }
@@ -177,9 +171,6 @@ function setAdapterEnabled(agentName: string, config: ContextMateConfig, enabled
       break;
     case 'claude':
       config.adapters.claude.enabled = enabled;
-      break;
-    case 'mirror':
-      config.adapters.mirror.enabled = enabled;
       break;
   }
 }
@@ -201,38 +192,7 @@ function createAdapterSubcommands(agentName: string, displayName: string): Comma
         let adapter = getAdapter(agentName, getAdapterOptions(agentName, config));
         let workspacePath: string;
 
-        if (agentName === 'mirror') {
-          // Mirror adapter: prompt for target path
-          const targetInput = await ask(chalk.bold('Target directory (e.g. ~/ai-context): '));
-          const trimmed = targetInput.trim();
-
-          if (!trimmed) {
-            console.error(chalk.red('Error: Target path cannot be empty.'));
-            process.exit(1);
-          }
-
-          workspacePath = trimmed.startsWith('~') ? trimmed.replace('~', homedir()) : trimmed;
-
-          // Prompt for optional include patterns
-          console.log('');
-          console.log(chalk.dim('Include patterns filter which vault files appear in the target.'));
-          console.log(chalk.dim('Leave empty to mirror all vault files.'));
-          console.log(chalk.dim('Example: openclaw/**,skills/**'));
-          console.log('');
-          const includeStr = await ask(chalk.bold('Include patterns (comma-separated, or Enter for all): '));
-          const include = includeStr.trim()
-            ? includeStr.split(',').map((s) => s.trim())
-            : [];
-
-          config.adapters.mirror.include = include;
-
-          // Recreate adapter with updated include
-          adapter = getAdapter(agentName, getAdapterOptions(agentName, config));
-
-          // Create target directory
-          await mkdir(workspacePath, { recursive: true });
-          console.log(`  Target: ${workspacePath}`);
-        } else if (agentName === 'openclaw') {
+        if (agentName === 'openclaw') {
           // OpenClaw: discover all agent workspaces
           console.log(chalk.dim(`Detecting ${displayName} workspaces...`));
           const workspaces = await discoverWorkspaces();
@@ -373,8 +333,6 @@ function createAdapterSubcommands(agentName: string, displayName: string): Comma
           }
         } else if (agentName === 'claude') {
           config.adapters.claude.claudeDir = workspacePath;
-        } else if (agentName === 'mirror') {
-          config.adapters.mirror.targetPath = workspacePath;
         }
         await saveConfig(config);
 
@@ -437,7 +395,7 @@ function createAdapterSubcommands(agentName: string, displayName: string): Comma
           const adapter = getAdapter(agentName, getAdapterOptions(agentName, config));
           const workspacePath = getWorkspacePath(agentName, config);
           const result = await adapter.verifySync(workspacePath);
-          console.log(`  ${agentName === 'mirror' ? 'Target:' : 'Workspace:'} ${workspacePath}`);
+          console.log(`  Workspace: ${workspacePath}`);
           console.log(`  Synced files: ${chalk.green(String(result.synced.length))}`);
           console.log(`  Stale files:  ${chalk.red(String(result.stale.length))}`);
           if (result.stale.length > 0) {
@@ -494,5 +452,4 @@ function createAdapterSubcommands(agentName: string, displayName: string): Comma
 export const adapterCommand = new Command('adapter')
   .description('Manage agent adapters')
   .addCommand(createAdapterSubcommands('openclaw', 'OpenClaw'))
-  .addCommand(createAdapterSubcommands('claude', 'Claude Code'))
-  .addCommand(createAdapterSubcommands('mirror', 'Mirror'));
+  .addCommand(createAdapterSubcommands('claude', 'Claude Code'));

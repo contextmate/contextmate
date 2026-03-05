@@ -1,7 +1,7 @@
 # ContextMate
 
 Zero-knowledge encrypted sync for AI agent context (memories, skills, rules).
-Primary use case: **OpenClaw** agent context management. Also supports Claude Code and arbitrary mirror targets.
+Primary use case: **OpenClaw** agent context management. Also supports Claude Code.
 
 ## Project Structure
 
@@ -11,7 +11,7 @@ src/                  # CLI client (TypeScript, ESM)
   cli/                #   Commands (setup, init, status, adapter, daemon, mcp, files, log, reset)
   crypto/             #   Encryption (AES-256-GCM, Argon2id, HKDF, BLAKE3)
   sync/               #   Sync engine (watcher, state, WebSocket)
-  adapters/           #   Agent adapters (OpenClaw, Claude Code, Mirror)
+  adapters/           #   Agent adapters (OpenClaw, Claude Code)
   mcp/                #   Local MCP server (BM25 + TF-IDF hybrid search)
 server/               # Cloud API (Hono, SQLite, WebSocket)
 web/                  # Web dashboard (React 19, Vite, Web Crypto API)
@@ -25,7 +25,6 @@ tests/                # Test suites (Vitest)
 | `src/adapters/base.ts` | Abstract base adapter — copy utilities, abstract interface |
 | `src/adapters/openclaw.ts` | OpenClaw adapter (primary) |
 | `src/adapters/claude.ts` | Claude Code adapter (~600 lines, largest) |
-| `src/adapters/mirror.ts` | Mirror adapter (copies vault to arbitrary target) |
 | `src/cli/daemon.ts` | Daemon — persistent sync service (launchd/systemd) |
 | `src/cli/setup.ts` | Interactive setup wizard (~890 lines) |
 | `src/sync/engine.ts` | Sync engine — file watching, WebSocket, cloud sync |
@@ -101,7 +100,7 @@ Passphrase → Argon2id(salt) → Master Key
 - Use **copy-sync** to integrate with agents (no symlinks — OpenClaw skips symlinks)
 - Claude adapter scans: `~/.agents/skills/` AND `~/.claude/skills/`
 - Adapters import files into vault, then copy back to workspace
-- Three adapters: `openclaw` (primary), `claude`, `mirror`
+- Two adapters: `openclaw` (primary), `claude`
 
 ### Server
 - File paths must be `decodeURIComponent()`'d when extracted from URLs

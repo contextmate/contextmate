@@ -458,7 +458,6 @@ export const setupCommand = new Command('setup')
           vaultPath: config!.vault.path,
           backupsPath: getBackupsPath(),
           scanPaths: config!.adapters.claude.scanPaths,
-          include: config!.adapters.mirror.include,
         });
 
         // Import files
@@ -528,57 +527,10 @@ export const setupCommand = new Command('setup')
         console.log(chalk.dim('  ○ OpenClaw not detected'));
       }
 
-      // No agents detected — offer mirror adapter
       if (!claudeDetected && !openclawDetected) {
         console.log('');
         console.log(chalk.yellow('  No AI agents detected on this machine.'));
-        console.log('');
-        console.log(chalk.dim('  The Mirror adapter can sync your vault to any local folder,'));
-        console.log(chalk.dim('  so you can view and edit your agent\'s context files'));
-        console.log(chalk.dim('  using Obsidian, VS Code, or any editor.'));
-        console.log('');
-
-        const wantMirror = await ask(chalk.bold('  Set up Mirror sync? (Y/n): '));
-        if (wantMirror.trim().toLowerCase() !== 'n') {
-          const targetInput = await ask(chalk.bold('  Target directory (e.g. ~/ai-context): '));
-          const trimmed = targetInput.trim();
-
-          if (trimmed) {
-            const resolved = trimmed.startsWith('~') ? trimmed.replace('~', homedir()) : trimmed;
-
-            console.log(chalk.dim('  Include patterns filter which vault files appear in the target.'));
-            console.log(chalk.dim('  Leave empty to mirror everything.'));
-            const includeStr = await ask(chalk.bold('  Include patterns (comma-separated, or Enter for all): '));
-            const include = includeStr.trim()
-              ? includeStr.split(',').map((s: string) => s.trim())
-              : [];
-
-            config!.adapters.mirror.include = include;
-
-            const mirrorAdapter = getAdapter('mirror', {
-              vaultPath: config!.vault.path,
-              backupsPath: getBackupsPath(),
-              include,
-            });
-
-            await mkdir(resolved, { recursive: true });
-
-            // Import any existing files from target
-            console.log(chalk.dim('    Scanning target directory...'));
-            const importResult = await mirrorAdapter.import(resolved);
-            if (importResult.imported.length > 0) {
-              console.log(`    ${chalk.green(`${importResult.imported.length} files imported to vault`)}`);
-            }
-
-            // Copy files to target
-            console.log(chalk.dim('    Syncing to target...'));
-            const copyResult = await mirrorAdapter.copyToWorkspace(resolved);
-            console.log(`    ${chalk.green(`${copyResult.copied.length} files synced`)}`);
-
-            config!.adapters.mirror.enabled = true;
-            config!.adapters.mirror.targetPath = resolved;
-          }
-        }
+        console.log(chalk.dim('  Install OpenClaw or Claude Code, then re-run setup.'));
       }
 
       console.log('');
@@ -603,7 +555,6 @@ export const setupCommand = new Command('setup')
             vaultPath: config!.vault.path,
             backupsPath: getBackupsPath(),
             scanPaths: config!.adapters.claude.scanPaths,
-            include: config!.adapters.mirror.include,
           });
           console.log(chalk.dim('  Scanning for project skills...'));
           const importResult = await adapter.import(claudeDir);
@@ -755,48 +706,6 @@ export const setupCommand = new Command('setup')
       const engine = new SyncEngine(config!, vaultKey!, token!);
       await engine.start();
 
-      // Start mirror sync if enabled
-      let mirrorInterval: ReturnType<typeof setInterval> | null = null;
-      let mirrorWatcher: import('../sync/watcher.js').FileWatcher | null = null;
-      if (config!.adapters.mirror.enabled && config!.adapters.mirror.targetPath) {
-        const { MirrorAdapter } = await import('../adapters/mirror.js');
-        const { FileWatcher } = await import('../sync/watcher.js');
-        const mirrorAdapter = new MirrorAdapter({
-          vaultPath: config!.vault.path,
-          backupsPath: getBackupsPath(),
-          include: config!.adapters.mirror.include,
-        });
-        const targetPath = config!.adapters.mirror.targetPath;
-
-        await mirrorAdapter.syncBack(targetPath);
-        const initial = await mirrorAdapter.refreshCopies(targetPath);
-        if (initial.copied.length > 0) {
-          console.log(chalk.dim(`  Mirror: ${initial.copied.length} files synced`));
-        }
-
-        mirrorWatcher = new FileWatcher(targetPath, config!.sync.debounceMs);
-        mirrorWatcher.start();
-
-        const handleMirrorChange = async () => {
-          try {
-            await mirrorAdapter.syncBack(targetPath);
-          } catch {
-            // Non-critical
-          }
-        };
-        mirrorWatcher.on('file-changed', () => void handleMirrorChange());
-        mirrorWatcher.on('file-added', () => void handleMirrorChange());
-
-        mirrorInterval = setInterval(async () => {
-          try {
-            await mirrorAdapter.syncBack(targetPath);
-            await mirrorAdapter.syncFromVault(targetPath);
-          } catch {
-            // Non-critical
-          }
-        }, config!.sync.pollIntervalMs);
-      }
-
       // Start OpenClaw workspace watchers if enabled
       const openclawInstances: Array<{ interval: ReturnType<typeof setInterval>; watcher: import('../sync/watcher.js').FileWatcher }> = [];
       if (config!.adapters.openclaw.enabled) {
@@ -902,8 +811,6 @@ export const setupCommand = new Command('setup')
 
       const shutdown = async () => {
         console.log(chalk.dim('\nStopping daemon...'));
-        if (mirrorInterval) clearInterval(mirrorInterval);
-        if (mirrorWatcher) await mirrorWatcher.stop();
         for (const oc of openclawInstances) {
           clearInterval(oc.interval);
           await oc.watcher.stop();

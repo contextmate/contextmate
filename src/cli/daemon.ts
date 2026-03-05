@@ -9,25 +9,23 @@ import { hexToBytes } from '@noble/hashes/utils';
 import { loadConfig, getConfigPath } from '../config.js';
 import { getPidFilePath, getBackupsPath } from '../utils/paths.js';
 import { deriveMasterKey, deriveVaultKey, decryptString } from '../crypto/index.js';
-import { MirrorAdapter } from '../adapters/mirror.js';
 import { OpenClawAdapter, OpenClawGlobalSync, discoverWorkspaces, getOpenClawRoot } from '../adapters/openclaw.js';
 import { ClaudeCodeAdapter } from '../adapters/claude.js';
 import { FileWatcher } from '../sync/watcher.js';
 import { retrievePassphrase, isKeychainAvailable, storePassphrase, deletePassphrase } from '../utils/keychain.js';
 import { installService, uninstallService, isServiceInstalled, writeVersionFile } from './service.js';
 
-type SyncDirection = 'bidirectional' | 'pull-only' | 'disabled';
+type SyncDirection = 'send-receive' | 'receive-only' | 'off';
 
 interface DeviceSyncSettings {
   adapters: {
     claude: SyncDirection;
     openclaw: SyncDirection;
-    mirror: SyncDirection;
   };
 }
 
 const DEFAULT_SYNC: DeviceSyncSettings = {
-  adapters: { claude: 'pull-only', openclaw: 'pull-only', mirror: 'pull-only' },
+  adapters: { claude: 'send-receive', openclaw: 'send-receive' },
 };
 
 async function loadDeviceSyncSettings(
@@ -46,24 +44,31 @@ async function loadDeviceSyncSettings(
     const decrypted = decryptString(hexToBytes(data.encryptedSettings), vaultKey);
     const parsed = JSON.parse(decrypted);
 
+    const MIGRATE: Record<string, SyncDirection> = {
+      'bidirectional': 'send-receive',
+      'pull-only': 'receive-only',
+      'disabled': 'off',
+    };
+
     function resolveDirection(raw: unknown): SyncDirection {
-      if (typeof raw === 'boolean') return raw ? 'pull-only' : 'disabled';
+      if (typeof raw === 'boolean') return raw ? 'send-receive' : 'off';
       if (raw && typeof raw === 'object') {
         const obj = raw as Record<string, unknown>;
-        if (!obj.enabled) return 'disabled';
-        if (['bidirectional', 'pull-only', 'disabled'].includes(obj.syncDirection as string)) {
-          return obj.syncDirection as SyncDirection;
+        if (!obj.enabled) return 'off';
+        const dir = obj.syncDirection as string;
+        const migrated = MIGRATE[dir] ?? dir;
+        if (['send-receive', 'receive-only', 'off'].includes(migrated)) {
+          return migrated as SyncDirection;
         }
-        return 'pull-only';
+        return 'send-receive';
       }
-      return 'disabled';
+      return 'off';
     }
 
     return {
       adapters: {
         claude: resolveDirection(parsed.adapters?.claude),
         openclaw: resolveDirection(parsed.adapters?.openclaw),
-        mirror: resolveDirection(parsed.adapters?.mirror),
       },
     };
   } catch {
@@ -195,7 +200,7 @@ const startCommand = new Command('start')
       if (deviceId) {
         syncSettings = await loadDeviceSyncSettings(config.server.url, authToken, deviceId, vaultKey);
         const dirs = syncSettings.adapters;
-        console.log(chalk.dim(`  Sync direction: openclaw=${dirs.openclaw}, claude=${dirs.claude}, mirror=${dirs.mirror}`));
+        console.log(chalk.dim(`  Sync direction: openclaw=${dirs.openclaw}, claude=${dirs.claude}`));
       }
 
       // Write PID file and version file
@@ -212,66 +217,11 @@ const startCommand = new Command('start')
       const engine = new SyncEngine(config, vaultKey, authToken);
       await engine.start();
 
-      // Start mirror sync if enabled
-      const mirrorDirection = syncSettings.adapters.mirror;
-      let mirrorInterval: ReturnType<typeof setInterval> | null = null;
-      let mirrorWatcher: FileWatcher | null = null;
-      if (config.adapters.mirror.enabled && config.adapters.mirror.targetPath && mirrorDirection !== 'disabled') {
-        const mirrorAdapter = new MirrorAdapter({
-          vaultPath: config.vault.path,
-          backupsPath: getBackupsPath(),
-          include: config.adapters.mirror.include,
-        });
-        const targetPath = config.adapters.mirror.targetPath;
-        const mirrorCanPush = mirrorDirection === 'bidirectional';
-
-        // Initial sync
-        if (mirrorCanPush) {
-          const backed = await mirrorAdapter.syncBack(targetPath);
-          if (backed.synced.length > 0) {
-            console.log(chalk.dim(`  Mirror: ${backed.synced.length} file${backed.synced.length === 1 ? '' : 's'} synced back`));
-          }
-        }
-        const initial = await mirrorAdapter.refreshCopies(targetPath);
-        if (initial.copied.length > 0) {
-          console.log(chalk.dim(`  Mirror: ${initial.copied.length} files synced`));
-        }
-
-        // Watch the mirror target for real-time change detection (only if bidirectional)
-        if (mirrorCanPush) {
-          mirrorWatcher = new FileWatcher(targetPath, config.sync.debounceMs);
-          mirrorWatcher.start();
-
-          const handleMirrorChange = async () => {
-            try {
-              const result = await mirrorAdapter.syncBack(targetPath);
-              if (result.synced.length > 0) {
-                console.log(chalk.dim(`  Mirror: ${result.synced.length} file${result.synced.length === 1 ? '' : 's'} synced back`));
-              }
-            } catch {
-              // Non-critical
-            }
-          };
-          mirrorWatcher.on('file-changed', () => void handleMirrorChange());
-          mirrorWatcher.on('file-added', () => void handleMirrorChange());
-        }
-
-        // Periodic sync
-        mirrorInterval = setInterval(async () => {
-          try {
-            if (mirrorCanPush) await mirrorAdapter.syncBack(targetPath);
-            await mirrorAdapter.syncFromVault(targetPath);
-          } catch {
-            // Non-critical
-          }
-        }, config.sync.pollIntervalMs);
-      }
-
       // Start OpenClaw workspace watchers if enabled
       const openclawDirection = syncSettings.adapters.openclaw;
-      const openclawCanPush = openclawDirection === 'bidirectional';
+      const openclawCanPush = openclawDirection === 'send-receive';
       const openclawInstances: Array<{ interval: ReturnType<typeof setInterval>; watcher: FileWatcher | null }> = [];
-      if (config.adapters.openclaw.enabled && openclawDirection !== 'disabled') {
+      if (config.adapters.openclaw.enabled && openclawDirection !== 'off') {
         const workspaces = Object.entries(config.adapters.openclaw.workspaces);
         for (const [agentId, ws] of workspaces) {
           const openclawAdapter = new OpenClawAdapter({
@@ -371,10 +321,10 @@ const startCommand = new Command('start')
 
       // Start Claude workspace watcher if enabled
       const claudeDirection = syncSettings.adapters.claude;
-      const claudeCanPush = claudeDirection === 'bidirectional';
+      const claudeCanPush = claudeDirection === 'send-receive';
       let claudeInterval: ReturnType<typeof setInterval> | null = null;
       let claudeWatcher: FileWatcher | null = null;
-      if (config.adapters.claude.enabled && config.adapters.claude.claudeDir && claudeDirection !== 'disabled') {
+      if (config.adapters.claude.enabled && config.adapters.claude.claudeDir && claudeDirection !== 'off') {
         const claudeAdapter = new ClaudeCodeAdapter({
           vaultPath: config.vault.path,
           backupsPath: getBackupsPath(),
@@ -425,8 +375,6 @@ const startCommand = new Command('start')
       // Handle graceful shutdown
       const shutdown = async () => {
         console.log(chalk.dim('\nStopping daemon...'));
-        if (mirrorInterval) clearInterval(mirrorInterval);
-        if (mirrorWatcher) await mirrorWatcher.stop();
         for (const oc of openclawInstances) {
           clearInterval(oc.interval);
           if (oc.watcher) await oc.watcher.stop();

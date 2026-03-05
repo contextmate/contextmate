@@ -39,11 +39,6 @@ export interface ContextMateConfig {
       syncProjectMemories: boolean;
       syncGlobalMemory: boolean;
     };
-    mirror: {
-      enabled: boolean;
-      targetPath: string;
-      include: string[];
-    };
   };
   mcp: {
     port: number;
@@ -90,11 +85,6 @@ export function getDefaultConfig(): ContextMateConfig {
         syncRules: true,
         syncProjectMemories: true,
         syncGlobalMemory: true,
-      },
-      mirror: {
-        enabled: false,
-        targetPath: '',
-        include: [],
       },
     },
     mcp: {

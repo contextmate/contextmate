@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext.tsx';
 import { encryptData, decryptData, bytesToHex, hexToBytes } from '../crypto/browser-crypto.ts';
 import type { Device } from '../api/client.ts';
 
-type SyncDirection = 'bidirectional' | 'pull-only' | 'disabled';
+type SyncDirection = 'send-receive' | 'receive-only' | 'off';
 
 interface AdapterSettings {
   enabled: boolean;
@@ -15,33 +15,39 @@ interface DeviceSettings {
   adapters: {
     claude: AdapterSettings;
     openclaw: AdapterSettings;
-    mirror: AdapterSettings;
   };
 }
 
-const DEFAULT_ADAPTER: AdapterSettings = { enabled: false, syncDirection: 'pull-only' };
+const DEFAULT_ADAPTER: AdapterSettings = { enabled: true, syncDirection: 'send-receive' };
 
 const DEFAULT_SETTINGS: DeviceSettings = {
   scanPaths: [],
   adapters: {
     claude: { ...DEFAULT_ADAPTER },
     openclaw: { ...DEFAULT_ADAPTER },
-    mirror: { ...DEFAULT_ADAPTER },
   },
+};
+
+const DIRECTION_MIGRATION: Record<string, SyncDirection> = {
+  'bidirectional': 'send-receive',
+  'pull-only': 'receive-only',
+  'disabled': 'off',
 };
 
 function normalizeAdapter(raw: unknown): AdapterSettings {
   if (typeof raw === 'boolean') {
     // Migrate old format: boolean → AdapterSettings
-    return { enabled: raw, syncDirection: 'pull-only' };
+    return { enabled: raw, syncDirection: 'send-receive' };
   }
   if (raw && typeof raw === 'object') {
     const obj = raw as Record<string, unknown>;
+    const dir = obj.syncDirection as string;
+    const migrated = DIRECTION_MIGRATION[dir] ?? dir;
     return {
       enabled: Boolean(obj.enabled),
-      syncDirection: (['bidirectional', 'pull-only', 'disabled'].includes(obj.syncDirection as string)
-        ? obj.syncDirection as SyncDirection
-        : 'pull-only'),
+      syncDirection: (['send-receive', 'receive-only', 'off'].includes(migrated)
+        ? migrated as SyncDirection
+        : 'send-receive'),
     };
   }
   return { ...DEFAULT_ADAPTER };
@@ -75,7 +81,6 @@ async function decryptSettings(
     adapters: {
       claude: normalizeAdapter(parsed.adapters?.claude),
       openclaw: normalizeAdapter(parsed.adapters?.openclaw),
-      mirror: normalizeAdapter(parsed.adapters?.mirror),
     },
   };
 }
@@ -93,22 +98,21 @@ async function encryptSettings(
 const ADAPTER_NAMES: Array<{ key: keyof DeviceSettings['adapters']; label: string }> = [
   { key: 'openclaw', label: 'OpenClaw' },
   { key: 'claude', label: 'Claude Code' },
-  { key: 'mirror', label: 'Mirror' },
 ];
 
 function syncDirectionLabel(dir: SyncDirection): string {
   switch (dir) {
-    case 'bidirectional': return 'Bidirectional';
-    case 'pull-only': return 'Pull only';
-    case 'disabled': return 'Disabled';
+    case 'send-receive': return 'Send & Receive';
+    case 'receive-only': return 'Receive only';
+    case 'off': return 'Off';
   }
 }
 
 function syncDirectionBadgeClass(dir: SyncDirection): string {
   switch (dir) {
-    case 'bidirectional': return 'badge-active';
-    case 'pull-only': return 'badge';
-    case 'disabled': return 'badge-revoked';
+    case 'send-receive': return 'badge-active';
+    case 'receive-only': return 'badge';
+    case 'off': return 'badge-revoked';
   }
 }
 
@@ -260,7 +264,7 @@ export function DevicesPanel() {
           ...editSettings.adapters,
           [adapter]: {
             ...editSettings.adapters[adapter],
-            enabled: direction !== 'disabled',
+            enabled: direction !== 'off',
             syncDirection: direction,
           },
         },
@@ -298,7 +302,7 @@ export function DevicesPanel() {
     <div className="panel">
       <div className="panel-header">Devices</div>
       <div className="panel-section" style={{ opacity: 0.7, fontSize: '0.8125rem', marginBottom: '0.5rem' }}>
-        New devices default to pull-only. Enable bidirectional sync to push local changes to the vault.
+        Devices default to Send & Receive. Set to Receive only to prevent a device from pushing local changes.
       </div>
 
       {devices.length === 0 ? (
@@ -371,12 +375,12 @@ export function DevicesPanel() {
                                     <select
                                       className="form-input"
                                       style={{ width: 'auto', flex: 'none' }}
-                                      value={editSettings.adapters[key].enabled ? editSettings.adapters[key].syncDirection : 'disabled'}
+                                      value={editSettings.adapters[key].enabled ? editSettings.adapters[key].syncDirection : 'off'}
                                       onChange={(e) => handleSyncDirectionChange(key, e.target.value as SyncDirection)}
                                     >
-                                      <option value="disabled">Disabled</option>
-                                      <option value="pull-only">Pull only</option>
-                                      <option value="bidirectional">Bidirectional</option>
+                                      <option value="off">Off</option>
+                                      <option value="receive-only">Receive only</option>
+                                      <option value="send-receive">Send & Receive</option>
                                     </select>
                                   </div>
                                 ))}
