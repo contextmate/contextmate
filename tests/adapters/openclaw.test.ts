@@ -318,7 +318,7 @@ describe('OpenClawGlobalSync', () => {
     expect(content).toContain('"updated"');
   });
 
-  it('syncFromVault copies session changes back to source', async () => {
+  it('syncFromVault skips sessions (sync-back only)', async () => {
     await mkdir(join(ocRoot, 'agents', 'main', 'sessions'), { recursive: true });
     await writeFile(join(ocRoot, 'agents', 'main', 'sessions', 's1.jsonl'), 'original');
     await globalSync.syncBack();
@@ -330,9 +330,20 @@ describe('OpenClawGlobalSync', () => {
     );
 
     const result = await globalSync.syncFromVault();
-    expect(result.synced).toContain('openclaw/main-sessions/s1.jsonl');
+    // Sessions should NOT be synced from vault (they are append-only logs)
+    expect(result.synced.some(p => p.includes('sessions'))).toBe(false);
 
     const content = await readFile(join(ocRoot, 'agents', 'main', 'sessions', 's1.jsonl'), 'utf-8');
-    expect(content).toContain('updated from other device');
+    expect(content).toBe('original');
+  });
+
+  it('skips .lock files during syncBack', async () => {
+    await mkdir(join(ocRoot, 'agents', 'main', 'sessions'), { recursive: true });
+    await writeFile(join(ocRoot, 'agents', 'main', 'sessions', 's1.jsonl'), 'data');
+    await writeFile(join(ocRoot, 'agents', 'main', 'sessions', 's1.jsonl.lock'), 'pid=123');
+
+    const result = await globalSync.syncBack();
+    expect(result.synced.some(p => p.includes('.lock'))).toBe(false);
+    expect(result.synced).toContain('openclaw/main-sessions/s1.jsonl');
   });
 });

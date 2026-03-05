@@ -315,6 +315,8 @@ export class OpenClawAdapter extends BaseAdapter {
 interface SourceMapping {
   sourcePath: string;
   vaultPrefix: string;
+  /** If true, only sync source → vault, never vault → source (e.g. append-only session logs) */
+  syncBackOnly?: boolean;
 }
 
 export class OpenClawGlobalSync {
@@ -357,6 +359,7 @@ export class OpenClawGlobalSync {
             mappings.push({
               sourcePath: sessionsDir,
               vaultPrefix: `openclaw/${agentName}-sessions`,
+              syncBackOnly: true,
             });
           }
         } catch {
@@ -406,6 +409,7 @@ export class OpenClawGlobalSync {
     const mappings = await this.discoverMappings();
 
     for (const mapping of mappings) {
+      if (mapping.syncBackOnly) continue;
       const s = await stat(mapping.sourcePath).catch(() => null);
 
       if (s?.isFile()) {
@@ -482,7 +486,7 @@ export class OpenClawGlobalSync {
     try {
       const entries = await readdir(dir);
       for (const name of entries) {
-        if (name.startsWith('.')) continue;
+        if (name.startsWith('.') || name.endsWith('.lock')) continue;
         const full = join(dir, name);
         try {
           const s = await stat(full);
