@@ -207,6 +207,7 @@ export const setupCommand = new Command('setup')
       let userId: string;
       let vaultKey: Uint8Array;
       let deviceId: string | null = null;
+      let passphrase: string = '';
 
       const configPath = getConfigPath();
       let alreadyInitialized = false;
@@ -247,7 +248,7 @@ export const setupCommand = new Command('setup')
 
         // We need the vault key — ask for passphrase
         console.log('');
-        const passphrase = await askSecret(chalk.bold('Passphrase: '));
+        passphrase = await askSecret(chalk.bold('Passphrase: '));
         if (!passphrase || !passphrase.trim()) {
           console.error(chalk.red('Error: Passphrase cannot be empty.'));
           process.exit(1);
@@ -284,7 +285,7 @@ export const setupCommand = new Command('setup')
             process.exit(1);
           }
 
-          const passphrase = await askSecret(chalk.bold('Passphrase: '));
+          passphrase = await askSecret(chalk.bold('Passphrase: '));
           if (!passphrase || !passphrase.trim()) {
             console.error(chalk.red('Error: Passphrase cannot be empty.'));
             process.exit(1);
@@ -349,7 +350,7 @@ export const setupCommand = new Command('setup')
           );
         } else {
           // Create account flow
-          const passphrase = await askSecret(chalk.bold('Choose a passphrase: '));
+          passphrase = await askSecret(chalk.bold('Choose a passphrase: '));
           if (!passphrase || !passphrase.trim()) {
             console.error(chalk.red('Error: Passphrase cannot be empty.'));
             process.exit(1);
@@ -663,7 +664,7 @@ export const setupCommand = new Command('setup')
         await runMcpSetup();
       }
 
-      // ─── Step 8: Start daemon ───
+      // ─── Step 8: Daemon service ───
       console.log(chalk.dim('─'.repeat(40)));
       console.log('');
       console.log(chalk.green.bold('Setup complete!'));
@@ -673,14 +674,60 @@ export const setupCommand = new Command('setup')
       console.log(`  ${chalk.bold('Dashboard:')} https://app.contextmate.dev`);
       console.log('');
 
+      // Try to install as persistent service
+      const { isKeychainAvailable, storePassphrase: storePass } = await import('../utils/keychain.js');
+      const { installService, isServiceInstalled, writeVersionFile } = await import('./service.js');
+      const keychainOk = await isKeychainAvailable();
+
+      if (keychainOk) {
+        // Stop any existing daemon first
+        const pidFile = getPidFilePath(config!);
+        try {
+          const pidStr = await readFile(pidFile, 'utf-8');
+          const pid = parseInt(pidStr.trim(), 10);
+          if (isPidRunning(pid)) {
+            process.kill(pid, 'SIGTERM');
+            for (let i = 0; i < 20; i++) {
+              await new Promise((r) => setTimeout(r, 500));
+              if (!isPidRunning(pid)) break;
+            }
+          }
+          await unlink(pidFile);
+        } catch {
+          // No daemon running
+        }
+
+        // Uninstall existing service if present
+        if (await isServiceInstalled()) {
+          const { uninstallService } = await import('./service.js');
+          await uninstallService();
+        }
+
+        const installDaemon = await ask(chalk.bold('Install daemon as persistent service? (auto-starts on boot) (Y/n): '));
+        if (installDaemon.trim().toLowerCase() !== 'n') {
+          console.log(chalk.dim('Storing passphrase in OS keychain...'));
+          await storePass(passphrase);
+
+          await writeVersionFile(config!);
+
+          console.log(chalk.dim('Installing OS service...'));
+          await installService(config!);
+
+          console.log(chalk.green('Daemon installed as persistent service.'));
+          console.log(chalk.dim('It will start automatically on login/boot and restart on updates.'));
+          return;
+        }
+      }
+
+      // Fallback: offer foreground start
       const startDaemon = await ask(chalk.bold('Start sync daemon now? (Y/n): '));
       if (startDaemon.trim().toLowerCase() === 'n') {
         console.log('');
-        console.log(chalk.dim('Run "contextmate daemon start" whenever you\'re ready to sync.'));
+        console.log(chalk.dim('Run "contextmate daemon start" or "contextmate daemon install" whenever you\'re ready.'));
         return;
       }
 
-      // Start daemon
+      // Start daemon in foreground (existing behavior)
       const pidFile = getPidFilePath(config!);
       try {
         await access(pidFile);
@@ -722,7 +769,6 @@ export const setupCommand = new Command('setup')
           console.log(chalk.dim(`  Mirror: ${initial.created.length} new symlinks`));
         }
 
-        // Watch mirror target for broken symlinks (editor atomic saves)
         mirrorWatcher = new FileWatcher(targetPath, config!.sync.debounceMs);
         mirrorWatcher.start();
 

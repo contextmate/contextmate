@@ -26,6 +26,10 @@ export function getPidFilePath(config: ContextMateConfig): string {
   return join(config.data.path, 'daemon.pid');
 }
 
+export function getVersionFilePath(config: ContextMateConfig): string {
+  return join(config.data.path, 'version');
+}
+
 export function relativePath(vaultPath: string, absolutePath: string): string {
   return relative(vaultPath, absolutePath);
 }
