@@ -17,7 +17,7 @@ const SYSTEMD_SERVICE = join(SYSTEMD_USER_DIR, 'contextmate.service');
 const SYSTEMD_PATH_UNIT = join(SYSTEMD_USER_DIR, 'contextmate-version.path');
 const SYSTEMD_RESTART_SERVICE = join(SYSTEMD_USER_DIR, 'contextmate-restart.service');
 
-const CLI_VERSION = '0.3.4';
+const CLI_VERSION = '0.3.6';
 
 function getScriptPath(): string {
   const __filename = fileURLToPath(import.meta.url);
