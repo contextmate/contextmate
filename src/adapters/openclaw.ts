@@ -1,31 +1,108 @@
-import { readFile, readdir, access, stat, copyFile, mkdir, writeFile } from 'node:fs/promises';
+import { readFile, readdir, access, stat, mkdir, writeFile, copyFile } from 'node:fs/promises';
 import { join, relative, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import picomatch from 'picomatch';
 import { BaseAdapter, type AdapterOptions, type ImportResult, type CopyResult } from './base.js';
 
+const DEFAULT_EXCLUDE = [
+  'node_modules/**',
+  '.git/**',
+  '.vercel/**',
+  '__pycache__/**',
+  '*.db',
+  '*.sqlite',
+];
+
+const DEFAULT_MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
+// Directories under ~/.openclaw/ that should never be synced
+const OPENCLAW_SKIP_DIRS = new Set([
+  'credentials',
+  'browser',
+  'media',
+  'telegram',
+]);
+
+export interface OpenClawWorkspace {
+  id: string;
+  name?: string;
+  workspace: string;
+  default?: boolean;
+}
+
+export function getOpenClawRoot(): string {
+  return join(homedir(), '.openclaw');
+}
+
+export async function discoverWorkspaces(): Promise<OpenClawWorkspace[]> {
+  const configPath = join(getOpenClawRoot(), 'openclaw.json');
+  try {
+    const raw = await readFile(configPath, 'utf-8');
+    const config = JSON.parse(raw) as {
+      agents?: {
+        defaults?: { workspace?: string };
+        list?: Array<{ id: string; name?: string; default?: boolean; workspace?: string }>;
+      };
+    };
+
+    const agents = config.agents?.list ?? [];
+    if (agents.length === 0) {
+      const defaultWorkspace = config.agents?.defaults?.workspace ?? join(getOpenClawRoot(), 'workspace');
+      return [{ id: 'main', workspace: defaultWorkspace, default: true }];
+    }
+
+    const defaultWorkspace = config.agents?.defaults?.workspace ?? join(getOpenClawRoot(), 'workspace');
+    return agents.map((agent) => ({
+      id: agent.id,
+      name: agent.name,
+      workspace: agent.workspace ?? (agent.default ? defaultWorkspace : ''),
+      default: agent.default,
+    })).filter((a) => a.workspace);
+  } catch {
+    const defaultPath = join(getOpenClawRoot(), 'workspace');
+    try {
+      await access(defaultPath);
+      return [{ id: 'main', workspace: defaultPath, default: true }];
+    } catch {
+      return [];
+    }
+  }
+}
+
+// ─── Workspace Adapter (one per agent workspace) ───
+
 export class OpenClawAdapter extends BaseAdapter {
-  private extraFiles: string[];
-  private extraGlobs: string[];
+  private agentId: string;
+  private excludePatterns: string[];
+  private maxFileSizeBytes: number;
 
   constructor(options: AdapterOptions) {
     super(options);
-    this.extraFiles = options.extraFiles ?? [];
-    this.extraGlobs = options.extraGlobs ?? [];
+    this.agentId = options.agentId ?? 'main';
+    this.excludePatterns = options.exclude ?? DEFAULT_EXCLUDE;
+    this.maxFileSizeBytes = options.maxFileSizeBytes ?? DEFAULT_MAX_FILE_SIZE;
   }
 
   get name(): string {
     return 'openclaw';
   }
 
+  private get vaultPrefix(): string {
+    return join('openclaw', this.agentId);
+  }
+
   async detect(): Promise<string | null> {
-    const workspacePath = join(homedir(), '.openclaw', 'workspace');
-    try {
-      await access(workspacePath);
-      return workspacePath;
-    } catch {
-      return null;
+    const workspaces = await discoverWorkspaces();
+    const match = workspaces.find((w) => w.id === this.agentId);
+    if (match) {
+      try {
+        await access(match.workspace);
+        return match.workspace;
+      } catch {
+        return null;
+      }
     }
+    return null;
   }
 
   async import(workspacePath: string): Promise<ImportResult> {
@@ -34,16 +111,14 @@ export class OpenClawAdapter extends BaseAdapter {
 
     for (const filePath of filesToImport) {
       const relativeSrc = relative(workspacePath, filePath);
-      const vaultRelative = join('openclaw', relativeSrc);
+      const vaultRelative = join(this.vaultPrefix, relativeSrc);
 
       try {
-        const sourceContent = await readFile(filePath, 'utf-8');
-
-        // Check if file already exists in vault with same content
+        const sourceContent = await readFile(filePath);
         const vaultDest = join(this.vaultPath, vaultRelative);
         try {
-          const existingContent = await readFile(vaultDest, 'utf-8');
-          if (existingContent === sourceContent) {
+          const existingContent = await readFile(vaultDest);
+          if (Buffer.compare(sourceContent, existingContent) === 0) {
             result.skipped.push(vaultRelative);
             continue;
           }
@@ -65,20 +140,20 @@ export class OpenClawAdapter extends BaseAdapter {
   async copyToWorkspace(workspacePath: string): Promise<CopyResult> {
     const result: CopyResult = { copied: [], errors: [] };
     const vaultFiles = await this.discoverVaultFiles();
+    const prefix = this.vaultPrefix + '/';
 
     for (const vaultRelative of vaultFiles) {
-      const relativeSrc = vaultRelative.replace(/^openclaw\//, '');
+      const relativeSrc = vaultRelative.slice(prefix.length);
       const destPath = join(workspacePath, relativeSrc);
-      const vaultPath = join(this.vaultPath, vaultRelative);
+      const vaultFilePath = join(this.vaultPath, vaultRelative);
 
       try {
-        // Skip if workspace file already matches vault
-        if (await this.filesMatch(vaultPath, destPath)) {
+        if (await this.filesMatch(vaultFilePath, destPath)) {
           continue;
         }
 
         await mkdir(dirname(destPath), { recursive: true });
-        await copyFile(vaultPath, destPath);
+        await copyFile(vaultFilePath, destPath);
         result.copied.push(relativeSrc);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -93,9 +168,10 @@ export class OpenClawAdapter extends BaseAdapter {
     const synced: string[] = [];
     const stale: string[] = [];
     const vaultFiles = await this.discoverVaultFiles();
+    const prefix = this.vaultPrefix + '/';
 
     for (const vaultRelative of vaultFiles) {
-      const relativeSrc = vaultRelative.replace(/^openclaw\//, '');
+      const relativeSrc = vaultRelative.slice(prefix.length);
       const workspaceFile = join(workspacePath, relativeSrc);
       const vaultFile = join(this.vaultPath, vaultRelative);
 
@@ -111,7 +187,6 @@ export class OpenClawAdapter extends BaseAdapter {
 
   async disconnect(_workspacePath: string): Promise<void> {
     // Workspace files are real copies — nothing to restore.
-    // Config disabling is handled by the caller.
   }
 
   async syncBack(workspacePath: string): Promise<{ synced: string[] }> {
@@ -120,13 +195,12 @@ export class OpenClawAdapter extends BaseAdapter {
 
     for (const filePath of filesToCheck) {
       const relativeSrc = relative(workspacePath, filePath);
-      const vaultRelative = join('openclaw', relativeSrc);
+      const vaultRelative = join(this.vaultPrefix, relativeSrc);
       const vaultFilePath = join(this.vaultPath, vaultRelative);
 
       try {
         const workspaceContent = await readFile(filePath);
 
-        // Compare with vault — skip if identical
         try {
           const vaultContent = await readFile(vaultFilePath);
           if (Buffer.compare(workspaceContent, vaultContent) === 0) {
@@ -136,7 +210,6 @@ export class OpenClawAdapter extends BaseAdapter {
           // Vault file doesn't exist yet
         }
 
-        // Copy changed content to vault
         await mkdir(dirname(vaultFilePath), { recursive: true });
         await writeFile(vaultFilePath, workspaceContent);
 
@@ -152,20 +225,20 @@ export class OpenClawAdapter extends BaseAdapter {
   async syncFromVault(workspacePath: string): Promise<{ synced: string[] }> {
     const synced: string[] = [];
     const vaultFiles = await this.discoverVaultFiles();
+    const prefix = this.vaultPrefix + '/';
 
     for (const vaultRelative of vaultFiles) {
-      const relativeSrc = vaultRelative.replace(/^openclaw\//, '');
+      const relativeSrc = vaultRelative.slice(prefix.length);
       const destPath = join(workspacePath, relativeSrc);
-      const vaultPath = join(this.vaultPath, vaultRelative);
+      const vaultFilePath = join(this.vaultPath, vaultRelative);
 
       try {
-        // Skip if workspace file already matches vault
-        if (await this.filesMatch(vaultPath, destPath)) {
+        if (await this.filesMatch(vaultFilePath, destPath)) {
           continue;
         }
 
         await mkdir(dirname(destPath), { recursive: true });
-        await copyFile(vaultPath, destPath);
+        await copyFile(vaultFilePath, destPath);
         synced.push(relativeSrc);
       } catch {
         // Skip errors
@@ -176,119 +249,43 @@ export class OpenClawAdapter extends BaseAdapter {
   }
 
   private async discoverFiles(workspacePath: string): Promise<string[]> {
+    const isExcluded = picomatch(this.excludePatterns);
     const files: string[] = [];
 
-    const topLevelFiles = ['MEMORY.md', 'IDENTITY.md', 'USER.md', 'SOUL.md'];
-    for (const name of topLevelFiles) {
-      const filePath = join(workspacePath, name);
+    const walk = async (dir: string): Promise<void> => {
+      let entries;
       try {
-        await access(filePath);
-        files.push(filePath);
+        entries = await readdir(dir);
       } catch {
-        // File doesn't exist
+        return;
       }
-    }
+      for (const name of entries) {
+        if (name.startsWith('.')) continue;
+        const full = join(dir, name);
+        const rel = relative(workspacePath, full);
 
-    // skills/*/SKILL.md
-    try {
-      const skillsDir = join(workspacePath, 'skills');
-      const skillNames = await readdir(skillsDir);
-      for (const name of skillNames) {
-        const skillPath = join(skillsDir, name);
-        const s = await stat(skillPath);
-        if (s.isDirectory()) {
-          const skillFile = join(skillPath, 'SKILL.md');
-          try {
-            await access(skillFile);
-            files.push(skillFile);
-          } catch {
-            // No SKILL.md
+        if (isExcluded(rel)) continue;
+
+        try {
+          const s = await stat(full);
+          if (s.isDirectory()) {
+            await walk(full);
+          } else if (s.isFile() && s.size <= this.maxFileSizeBytes) {
+            files.push(full);
           }
+        } catch {
+          // Skip inaccessible
         }
       }
-    } catch {
-      // No skills directory
-    }
+    };
 
-    // memory/*.md
-    try {
-      const memoryDir = join(workspacePath, 'memory');
-      const memoryNames = await readdir(memoryDir);
-      for (const name of memoryNames) {
-        if (name.endsWith('.md')) {
-          const memPath = join(memoryDir, name);
-          const s = await stat(memPath);
-          if (s.isFile()) {
-            files.push(memPath);
-          }
-        }
-      }
-    } catch {
-      // No memory directory
-    }
-
-    // Extra files from config
-    for (const name of this.extraFiles) {
-      const filePath = join(workspacePath, name);
-      try {
-        await access(filePath);
-        if (!files.includes(filePath)) {
-          files.push(filePath);
-        }
-      } catch {
-        // File doesn't exist, skip
-      }
-    }
-
-    // Extra globs from config
-    if (this.extraGlobs.length > 0) {
-      const isMatch = picomatch(this.extraGlobs);
-      const globMatches = await this.walkAndMatch(workspacePath, workspacePath, isMatch);
-      for (const fp of globMatches) {
-        if (!files.includes(fp)) {
-          files.push(fp);
-        }
-      }
-    }
-
+    await walk(workspacePath);
     return files;
-  }
-
-  private async walkAndMatch(
-    dir: string,
-    base: string,
-    isMatch: (path: string) => boolean,
-  ): Promise<string[]> {
-    const matches: string[] = [];
-    let entries;
-    try {
-      entries = await readdir(dir);
-    } catch {
-      return matches;
-    }
-    for (const name of entries) {
-      if (name.startsWith('.') || name === 'node_modules') continue;
-      const full = join(dir, name);
-      try {
-        const s = await stat(full);
-        if (s.isDirectory()) {
-          matches.push(...await this.walkAndMatch(full, base, isMatch));
-        } else if (s.isFile()) {
-          const rel = relative(base, full);
-          if (isMatch(rel)) {
-            matches.push(full);
-          }
-        }
-      } catch {
-        // Skip inaccessible
-      }
-    }
-    return matches;
   }
 
   private async discoverVaultFiles(): Promise<string[]> {
     const files: string[] = [];
-    const openclawVault = join(this.vaultPath, 'openclaw');
+    const agentVault = join(this.vaultPath, 'openclaw', this.agentId);
 
     const walkDir = async (dir: string, baseDir: string): Promise<void> => {
       try {
@@ -298,9 +295,9 @@ export class OpenClawAdapter extends BaseAdapter {
           const s = await stat(fullPath);
           if (s.isDirectory()) {
             await walkDir(fullPath, baseDir);
-          } else if (s.isFile() && name.endsWith('.md')) {
+          } else if (s.isFile()) {
             const rel = relative(baseDir, fullPath);
-            files.push(join('openclaw', rel));
+            files.push(join('openclaw', this.agentId, rel));
           }
         }
       } catch {
@@ -308,7 +305,208 @@ export class OpenClawAdapter extends BaseAdapter {
       }
     };
 
-    await walkDir(openclawVault, openclawVault);
+    await walkDir(agentVault, agentVault);
     return files;
+  }
+}
+
+// ─── Global Sync (config, sessions, cron — outside workspaces) ───
+
+interface SourceMapping {
+  sourcePath: string;
+  vaultPrefix: string;
+}
+
+export class OpenClawGlobalSync {
+  private vaultPath: string;
+  private openclawRoot: string;
+  private maxFileSizeBytes: number;
+
+  constructor(vaultPath: string, openclawRoot?: string, maxFileSizeBytes = DEFAULT_MAX_FILE_SIZE) {
+    this.vaultPath = vaultPath;
+    this.openclawRoot = openclawRoot ?? getOpenClawRoot();
+    this.maxFileSizeBytes = maxFileSizeBytes;
+  }
+
+  async discoverMappings(): Promise<SourceMapping[]> {
+    const root = this.openclawRoot;
+    const mappings: SourceMapping[] = [];
+
+    // Config files: openclaw.json → openclaw/config/openclaw.json
+    const configFile = join(root, 'openclaw.json');
+    if (await fileExists(configFile)) {
+      mappings.push({ sourcePath: configFile, vaultPrefix: 'openclaw/config' });
+    }
+
+    // Cron jobs: cron/jobs.json → openclaw/config/cron/jobs.json
+    const cronFile = join(root, 'cron', 'jobs.json');
+    if (await fileExists(cronFile)) {
+      mappings.push({ sourcePath: cronFile, vaultPrefix: 'openclaw/config/cron' });
+    }
+
+    // Session transcripts: agents/{agentId}/sessions/*.jsonl → openclaw/{agentId}-sessions/
+    const agentsDir = join(root, 'agents');
+    try {
+      const agentNames = await readdir(agentsDir);
+      for (const agentName of agentNames) {
+        if (agentName.startsWith('.') || OPENCLAW_SKIP_DIRS.has(agentName)) continue;
+        const sessionsDir = join(agentsDir, agentName, 'sessions');
+        try {
+          const s = await stat(sessionsDir);
+          if (s.isDirectory()) {
+            mappings.push({
+              sourcePath: sessionsDir,
+              vaultPrefix: `openclaw/${agentName}-sessions`,
+            });
+          }
+        } catch {
+          // No sessions dir for this agent
+        }
+      }
+    } catch {
+      // No agents dir
+    }
+
+    return mappings;
+  }
+
+  async syncBack(): Promise<{ synced: string[] }> {
+    const synced: string[] = [];
+    const mappings = await this.discoverMappings();
+
+    for (const mapping of mappings) {
+      const s = await stat(mapping.sourcePath).catch(() => null);
+      if (!s) continue;
+
+      if (s.isFile()) {
+        // Single file mapping (config files)
+        const fileName = mapping.sourcePath.split('/').pop()!;
+        const vaultRelative = join(mapping.vaultPrefix, fileName);
+        if (await this.syncFileToVault(mapping.sourcePath, vaultRelative)) {
+          synced.push(vaultRelative);
+        }
+      } else if (s.isDirectory()) {
+        // Directory mapping (sessions)
+        const files = await this.walkDir(mapping.sourcePath);
+        for (const filePath of files) {
+          const rel = relative(mapping.sourcePath, filePath);
+          const vaultRelative = join(mapping.vaultPrefix, rel);
+          if (await this.syncFileToVault(filePath, vaultRelative)) {
+            synced.push(vaultRelative);
+          }
+        }
+      }
+    }
+
+    return { synced };
+  }
+
+  async syncFromVault(): Promise<{ synced: string[] }> {
+    const synced: string[] = [];
+    const mappings = await this.discoverMappings();
+
+    for (const mapping of mappings) {
+      const s = await stat(mapping.sourcePath).catch(() => null);
+
+      if (s?.isFile()) {
+        // Single file: vault → source
+        const fileName = mapping.sourcePath.split('/').pop()!;
+        const vaultRelative = join(mapping.vaultPrefix, fileName);
+        const vaultFilePath = join(this.vaultPath, vaultRelative);
+        if (await this.syncFileFromVault(vaultFilePath, mapping.sourcePath)) {
+          synced.push(vaultRelative);
+        }
+      } else if (s?.isDirectory()) {
+        // Directory: walk vault prefix and copy back
+        const vaultDir = join(this.vaultPath, mapping.vaultPrefix);
+        const vaultFiles = await this.walkDir(vaultDir);
+        for (const vaultFilePath of vaultFiles) {
+          const rel = relative(vaultDir, vaultFilePath);
+          const destPath = join(mapping.sourcePath, rel);
+          const vaultRelative = join(mapping.vaultPrefix, rel);
+          if (await this.syncFileFromVault(vaultFilePath, destPath)) {
+            synced.push(vaultRelative);
+          }
+        }
+      }
+    }
+
+    return { synced };
+  }
+
+  private async syncFileToVault(sourcePath: string, vaultRelative: string): Promise<boolean> {
+    try {
+      const sourceContent = await readFile(sourcePath);
+      const vaultFilePath = join(this.vaultPath, vaultRelative);
+
+      try {
+        const vaultContent = await readFile(vaultFilePath);
+        if (Buffer.compare(sourceContent, vaultContent) === 0) {
+          return false;
+        }
+      } catch {
+        // Vault file doesn't exist yet
+      }
+
+      await mkdir(dirname(vaultFilePath), { recursive: true });
+      await writeFile(vaultFilePath, sourceContent);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private async syncFileFromVault(vaultFilePath: string, destPath: string): Promise<boolean> {
+    try {
+      const vaultContent = await readFile(vaultFilePath);
+
+      try {
+        const destContent = await readFile(destPath);
+        if (Buffer.compare(vaultContent, destContent) === 0) {
+          return false;
+        }
+      } catch {
+        // Dest doesn't exist yet
+      }
+
+      await mkdir(dirname(destPath), { recursive: true });
+      await writeFile(destPath, vaultContent);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private async walkDir(dir: string): Promise<string[]> {
+    const files: string[] = [];
+    try {
+      const entries = await readdir(dir);
+      for (const name of entries) {
+        if (name.startsWith('.')) continue;
+        const full = join(dir, name);
+        try {
+          const s = await stat(full);
+          if (s.isDirectory()) {
+            files.push(...await this.walkDir(full));
+          } else if (s.isFile() && s.size <= this.maxFileSizeBytes) {
+            files.push(full);
+          }
+        } catch {
+          // Skip
+        }
+      }
+    } catch {
+      // Dir doesn't exist
+    }
+    return files;
+  }
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    const s = await stat(path);
+    return s.isFile();
+  } catch {
+    return false;
   }
 }

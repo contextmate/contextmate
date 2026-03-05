@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { OpenClawAdapter } from '../../src/adapters/openclaw.js';
+import { OpenClawAdapter, OpenClawGlobalSync } from '../../src/adapters/openclaw.js';
 import { tmpdir } from 'node:os';
 import { mkdtemp, rm, writeFile, mkdir, readFile, lstat } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -29,7 +29,7 @@ beforeEach(async () => {
   backupsPath = join(tmpDir, 'backups');
   await mkdir(vaultPath, { recursive: true });
   await mkdir(backupsPath, { recursive: true });
-  adapter = new OpenClawAdapter({ vaultPath, backupsPath });
+  adapter = new OpenClawAdapter({ vaultPath, backupsPath, agentId: 'main' });
 });
 
 afterEach(async () => {
@@ -42,16 +42,16 @@ describe('OpenClawAdapter', () => {
     expect(result === null || typeof result === 'string').toBe(true);
   });
 
-  it('import() copies expected files to vault', async () => {
+  it('import() copies expected files to vault under openclaw/main/', async () => {
     const result = await adapter.import(workspacePath);
     expect(result.errors.length).toBe(0);
     expect(result.imported.length).toBeGreaterThan(0);
 
-    const memoryContent = await readFile(join(vaultPath, 'openclaw', 'MEMORY.md'), 'utf-8');
+    const memoryContent = await readFile(join(vaultPath, 'openclaw', 'main', 'MEMORY.md'), 'utf-8');
     expect(memoryContent).toContain('Test memory content');
 
     const skillContent = await readFile(
-      join(vaultPath, 'openclaw', 'skills', 'test-skill', 'SKILL.md'),
+      join(vaultPath, 'openclaw', 'main', 'skills', 'test-skill', 'SKILL.md'),
       'utf-8',
     );
     expect(skillContent).toContain('Test skill content');
@@ -65,7 +65,7 @@ describe('OpenClawAdapter', () => {
     const result = await adapter.import(minimalWs);
     expect(result.errors.length).toBe(0);
     expect(result.imported.length).toBe(1);
-    expect(result.imported[0]).toBe('openclaw/MEMORY.md');
+    expect(result.imported[0]).toBe('openclaw/main/MEMORY.md');
   });
 
   it('import() skips files with identical content', async () => {
@@ -91,7 +91,6 @@ describe('OpenClawAdapter', () => {
 
   it('verifySync() identifies synced and stale files', async () => {
     await adapter.import(workspacePath);
-    // Workspace and vault should be in sync after import (same content)
     const result = await adapter.verifySync(workspacePath);
     expect(result.synced.length).toBeGreaterThan(0);
     expect(result.stale.length).toBe(0);
@@ -102,87 +101,97 @@ describe('OpenClawAdapter', () => {
     await adapter.copyToWorkspace(workspacePath);
     await adapter.disconnect(workspacePath);
 
-    // Files should still be readable
     const content = await readFile(join(workspacePath, 'MEMORY.md'), 'utf-8');
     expect(content).toContain('Test memory content');
   });
 
-  it('import() discovers extraFiles from config', async () => {
-    await writeFile(join(workspacePath, 'HEARTBEAT.md'), '# Heartbeat\nAgent heartbeat');
-    await writeFile(join(workspacePath, 'PLAYBOOK.md'), '# Playbook\nAgent playbook');
+  it('import() discovers all file types (not just .md)', async () => {
+    await writeFile(join(workspacePath, 'data.json'), '{"key": "value"}');
+    await writeFile(join(workspacePath, 'script.py'), 'print("hello")');
+    // Create a small binary-like file
+    await writeFile(join(workspacePath, 'image.jpg'), Buffer.from([0xFF, 0xD8, 0xFF, 0xE0]));
 
-    const extraAdapter = new OpenClawAdapter({
-      vaultPath,
-      backupsPath,
-      extraFiles: ['HEARTBEAT.md', 'PLAYBOOK.md'],
-    });
-    const result = await extraAdapter.import(workspacePath);
-
+    const result = await adapter.import(workspacePath);
     expect(result.errors.length).toBe(0);
-    expect(result.imported).toContain('openclaw/HEARTBEAT.md');
-    expect(result.imported).toContain('openclaw/PLAYBOOK.md');
-
-    const content = await readFile(join(vaultPath, 'openclaw', 'HEARTBEAT.md'), 'utf-8');
-    expect(content).toContain('Agent heartbeat');
+    expect(result.imported).toContain('openclaw/main/data.json');
+    expect(result.imported).toContain('openclaw/main/script.py');
+    expect(result.imported).toContain('openclaw/main/image.jpg');
   });
 
-  it('import() discovers files matching extraGlobs', async () => {
-    await mkdir(join(workspacePath, 'agents'), { recursive: true });
-    await writeFile(join(workspacePath, 'agents', 'AGENT1.md'), '# Agent 1');
-    await writeFile(join(workspacePath, 'agents', 'AGENT2.md'), '# Agent 2');
+  it('import() excludes node_modules and .git directories', async () => {
+    await mkdir(join(workspacePath, 'node_modules', 'pkg'), { recursive: true });
+    await writeFile(join(workspacePath, 'node_modules', 'pkg', 'index.js'), 'module.exports = {}');
+    await mkdir(join(workspacePath, '.git'), { recursive: true });
+    await writeFile(join(workspacePath, '.git', 'config'), 'git config');
 
-    const extraAdapter = new OpenClawAdapter({
-      vaultPath,
-      backupsPath,
-      extraGlobs: ['agents/*.md'],
-    });
-    const result = await extraAdapter.import(workspacePath);
-
-    expect(result.errors.length).toBe(0);
-    expect(result.imported).toContain('openclaw/agents/AGENT1.md');
-    expect(result.imported).toContain('openclaw/agents/AGENT2.md');
+    const result = await adapter.import(workspacePath);
+    const paths = [...result.imported, ...result.skipped];
+    expect(paths.some(p => p.includes('node_modules'))).toBe(false);
+    expect(paths.some(p => p.includes('.git'))).toBe(false);
   });
 
-  it('import() ignores non-existent extraFiles gracefully', async () => {
-    const extraAdapter = new OpenClawAdapter({
+  it('import() respects maxFileSizeBytes', async () => {
+    const smallAdapter = new OpenClawAdapter({
       vaultPath,
       backupsPath,
-      extraFiles: ['NONEXISTENT.md'],
+      agentId: 'main',
+      maxFileSizeBytes: 10, // 10 bytes max
     });
-    const result = await extraAdapter.import(workspacePath);
 
-    expect(result.errors.length).toBe(0);
-    expect(result.imported.length).toBeGreaterThan(0);
+    await writeFile(join(workspacePath, 'large.txt'), 'This is more than ten bytes of content');
+    await writeFile(join(workspacePath, 'tiny.txt'), '123');
+
+    const result = await smallAdapter.import(workspacePath);
+    const imported = result.imported.map(p => p.replace('openclaw/main/', ''));
+    expect(imported).toContain('tiny.txt');
+    expect(imported).not.toContain('large.txt');
   });
 
-  it('import() does not duplicate files when extraFiles overlap with defaults', async () => {
-    const extraAdapter = new OpenClawAdapter({
-      vaultPath,
-      backupsPath,
-      extraFiles: ['MEMORY.md'],
-    });
-    const result = await extraAdapter.import(workspacePath);
+  it('import() preserves binary file content', async () => {
+    const binaryContent = Buffer.from([0x00, 0x01, 0x02, 0xFF, 0xFE, 0xFD]);
+    await writeFile(join(workspacePath, 'binary.bin'), binaryContent);
 
-    const memoryCount = result.imported.filter((f) => f === 'openclaw/MEMORY.md').length;
+    await adapter.import(workspacePath);
+
+    const vaultContent = await readFile(join(vaultPath, 'openclaw', 'main', 'binary.bin'));
+    expect(Buffer.compare(vaultContent, binaryContent)).toBe(0);
+  });
+
+  it('import() does not duplicate files', async () => {
+    const result = await adapter.import(workspacePath);
+    const memoryCount = result.imported.filter((f) => f === 'openclaw/main/MEMORY.md').length;
     expect(memoryCount).toBe(1);
+  });
+
+  it('uses different vault prefixes for different agentIds', async () => {
+    const redditAdapter = new OpenClawAdapter({
+      vaultPath,
+      backupsPath,
+      agentId: 'reddit',
+    });
+
+    await adapter.import(workspacePath);
+    await redditAdapter.import(workspacePath);
+
+    const mainContent = await readFile(join(vaultPath, 'openclaw', 'main', 'MEMORY.md'), 'utf-8');
+    const redditContent = await readFile(join(vaultPath, 'openclaw', 'reddit', 'MEMORY.md'), 'utf-8');
+    expect(mainContent).toContain('Test memory content');
+    expect(redditContent).toContain('Test memory content');
   });
 
   describe('syncBack()', () => {
     it('detects workspace changes and syncs content to vault', async () => {
       await adapter.import(workspacePath);
 
-      // Edit the workspace file
       await writeFile(join(workspacePath, 'MEMORY.md'), '# Memory\nUpdated by editor');
 
       const result = await adapter.syncBack(workspacePath);
       expect(result.synced.length).toBeGreaterThan(0);
-      expect(result.synced).toContain('openclaw/MEMORY.md');
+      expect(result.synced).toContain('openclaw/main/MEMORY.md');
 
-      // Vault should have new content
-      const vaultContent = await readFile(join(vaultPath, 'openclaw', 'MEMORY.md'), 'utf-8');
+      const vaultContent = await readFile(join(vaultPath, 'openclaw', 'main', 'MEMORY.md'), 'utf-8');
       expect(vaultContent).toContain('Updated by editor');
 
-      // Workspace file should still be a regular file
       const stats = await lstat(join(workspacePath, 'MEMORY.md'));
       expect(stats.isFile()).toBe(true);
       expect(stats.isSymbolicLink()).toBe(false);
@@ -190,8 +199,6 @@ describe('OpenClawAdapter', () => {
 
     it('skips files with identical content', async () => {
       await adapter.import(workspacePath);
-
-      // No changes — content should match
       const result = await adapter.syncBack(workspacePath);
       expect(result.synced.length).toBe(0);
     });
@@ -201,8 +208,7 @@ describe('OpenClawAdapter', () => {
     it('copies vault changes to workspace', async () => {
       await adapter.import(workspacePath);
 
-      // Simulate a remote change arriving in the vault
-      await writeFile(join(vaultPath, 'openclaw', 'MEMORY.md'), '# Memory\nUpdated from cloud');
+      await writeFile(join(vaultPath, 'openclaw', 'main', 'MEMORY.md'), '# Memory\nUpdated from cloud');
 
       const result = await adapter.syncFromVault(workspacePath);
       expect(result.synced.length).toBeGreaterThan(0);
@@ -213,9 +219,120 @@ describe('OpenClawAdapter', () => {
 
     it('skips files already in sync', async () => {
       await adapter.import(workspacePath);
-
       const result = await adapter.syncFromVault(workspacePath);
       expect(result.synced.length).toBe(0);
     });
+  });
+});
+
+describe('OpenClawGlobalSync', () => {
+  let ocRoot: string;
+  let globalSync: OpenClawGlobalSync;
+
+  beforeEach(async () => {
+    ocRoot = join(tmpDir, '.openclaw');
+    await mkdir(ocRoot, { recursive: true });
+    globalSync = new OpenClawGlobalSync(vaultPath, ocRoot);
+  });
+
+  it('syncs openclaw.json to vault/openclaw/config/', async () => {
+    await writeFile(join(ocRoot, 'openclaw.json'), '{"agents":{"list":[]}}');
+
+    const result = await globalSync.syncBack();
+    expect(result.synced).toContain('openclaw/config/openclaw.json');
+
+    const content = await readFile(join(vaultPath, 'openclaw', 'config', 'openclaw.json'), 'utf-8');
+    expect(content).toContain('"agents"');
+  });
+
+  it('syncs cron/jobs.json to vault/openclaw/config/cron/', async () => {
+    await mkdir(join(ocRoot, 'cron'), { recursive: true });
+    await writeFile(join(ocRoot, 'cron', 'jobs.json'), '{"jobs":[]}');
+
+    const result = await globalSync.syncBack();
+    expect(result.synced).toContain('openclaw/config/cron/jobs.json');
+
+    const content = await readFile(join(vaultPath, 'openclaw', 'config', 'cron', 'jobs.json'), 'utf-8');
+    expect(content).toContain('"jobs"');
+  });
+
+  it('syncs session transcripts to vault/openclaw/{agentId}-sessions/', async () => {
+    await mkdir(join(ocRoot, 'agents', 'main', 'sessions'), { recursive: true });
+    await writeFile(
+      join(ocRoot, 'agents', 'main', 'sessions', '2026-03-01.jsonl'),
+      '{"role":"user","content":"hello"}\n',
+    );
+
+    const result = await globalSync.syncBack();
+    expect(result.synced).toContain('openclaw/main-sessions/2026-03-01.jsonl');
+
+    const content = await readFile(
+      join(vaultPath, 'openclaw', 'main-sessions', '2026-03-01.jsonl'),
+      'utf-8',
+    );
+    expect(content).toContain('"hello"');
+  });
+
+  it('syncs sessions for multiple agents', async () => {
+    await mkdir(join(ocRoot, 'agents', 'main', 'sessions'), { recursive: true });
+    await mkdir(join(ocRoot, 'agents', 'reddit', 'sessions'), { recursive: true });
+    await writeFile(join(ocRoot, 'agents', 'main', 'sessions', 's1.jsonl'), 'main session');
+    await writeFile(join(ocRoot, 'agents', 'reddit', 'sessions', 's1.jsonl'), 'reddit session');
+
+    const result = await globalSync.syncBack();
+    expect(result.synced).toContain('openclaw/main-sessions/s1.jsonl');
+    expect(result.synced).toContain('openclaw/reddit-sessions/s1.jsonl');
+  });
+
+  it('skips credentials directory', async () => {
+    await mkdir(join(ocRoot, 'agents', 'credentials', 'sessions'), { recursive: true });
+    await writeFile(join(ocRoot, 'agents', 'credentials', 'sessions', 'secret.jsonl'), 'secret');
+
+    const result = await globalSync.syncBack();
+    expect(result.synced.some(p => p.includes('credentials'))).toBe(false);
+  });
+
+  it('skips unchanged files on second sync', async () => {
+    await writeFile(join(ocRoot, 'openclaw.json'), '{"agents":{"list":[]}}');
+
+    await globalSync.syncBack();
+    const result = await globalSync.syncBack();
+    expect(result.synced.length).toBe(0);
+  });
+
+  it('syncFromVault copies vault changes back to source', async () => {
+    // Create the config file so discoverMappings finds it
+    await writeFile(join(ocRoot, 'openclaw.json'), '{"old":"config"}');
+    await globalSync.syncBack();
+
+    // Simulate a remote change in the vault
+    await writeFile(
+      join(vaultPath, 'openclaw', 'config', 'openclaw.json'),
+      '{"updated":"from cloud"}',
+    );
+
+    const result = await globalSync.syncFromVault();
+    expect(result.synced).toContain('openclaw/config/openclaw.json');
+
+    const content = await readFile(join(ocRoot, 'openclaw.json'), 'utf-8');
+    expect(content).toContain('"updated"');
+  });
+
+  it('syncFromVault copies session changes back to source', async () => {
+    await mkdir(join(ocRoot, 'agents', 'main', 'sessions'), { recursive: true });
+    await writeFile(join(ocRoot, 'agents', 'main', 'sessions', 's1.jsonl'), 'original');
+    await globalSync.syncBack();
+
+    // Simulate vault update
+    await writeFile(
+      join(vaultPath, 'openclaw', 'main-sessions', 's1.jsonl'),
+      'updated from other device',
+    );
+
+    const result = await globalSync.syncFromVault();
+    expect(result.synced).toContain('openclaw/main-sessions/s1.jsonl');
+
+    const content = await readFile(join(ocRoot, 'agents', 'main', 'sessions', 's1.jsonl'), 'utf-8');
+    expect(content).toContain('updated from other device');
   });
 });

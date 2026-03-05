@@ -9,6 +9,7 @@ import { homedir } from 'node:os';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { loadConfig, saveConfig, getConfigPath, type ContextMateConfig } from '../config.js';
 import { getAdapter } from '../adapters/index.js';
+import { OpenClawAdapter, discoverWorkspaces } from '../adapters/openclaw.js';
 import { getBackupsPath } from '../utils/paths.js';
 import { deriveMasterKey, deriveVaultKey, encryptString } from '../crypto/index.js';
 
@@ -137,16 +138,16 @@ function getAdapterOptions(agentName: string, config: ContextMateConfig) {
     vaultPath: config.vault.path,
     backupsPath: getBackupsPath(),
     scanPaths: config.adapters.claude.scanPaths,
-    extraFiles: config.adapters.openclaw.extraFiles,
-    extraGlobs: config.adapters.openclaw.extraGlobs,
     include: config.adapters.mirror.include,
   };
 }
 
 function getWorkspacePath(agentName: string, config: ContextMateConfig): string {
   switch (agentName) {
-    case 'openclaw':
-      return config.adapters.openclaw.workspacePath;
+    case 'openclaw': {
+      const workspaces = Object.values(config.adapters.openclaw.workspaces);
+      return workspaces.length > 0 ? workspaces[0]!.workspacePath : '';
+    }
     case 'claude':
       return config.adapters.claude.claudeDir;
     case 'mirror':
@@ -231,18 +232,72 @@ function createAdapterSubcommands(agentName: string, displayName: string): Comma
           // Create target directory
           await mkdir(workspacePath, { recursive: true });
           console.log(`  Target: ${workspacePath}`);
+        } else if (agentName === 'openclaw') {
+          // OpenClaw: discover all agent workspaces
+          console.log(chalk.dim(`Detecting ${displayName} workspaces...`));
+          const workspaces = await discoverWorkspaces();
+          if (workspaces.length === 0) {
+            console.error(chalk.red('Could not detect any OpenClaw workspaces.'));
+            console.error(chalk.dim('  Expected config at: ~/.openclaw/openclaw.json'));
+            console.error(chalk.dim('  Or workspace at: ~/.openclaw/workspace'));
+            process.exit(1);
+          }
+
+          console.log(chalk.green(`  Found ${workspaces.length} workspace${workspaces.length === 1 ? '' : 's'}`));
+
+          for (const ws of workspaces) {
+            const label = ws.name ? `${ws.id} (${ws.name})` : ws.id;
+            console.log(chalk.dim(`\n  Agent: ${label}`));
+            console.log(`  Workspace: ${ws.workspace}`);
+
+            const ocAdapter = new OpenClawAdapter({
+              vaultPath: config.vault.path,
+              backupsPath: getBackupsPath(),
+              agentId: ws.id,
+            });
+
+            console.log(chalk.dim('  Importing files to vault...'));
+            const ir = await ocAdapter.import(ws.workspace);
+            console.log(
+              `  ${chalk.green(`${ir.imported.length} new`)}, ` +
+              `${chalk.dim(`${ir.skipped.length} unchanged`)}`,
+            );
+
+            console.log(chalk.dim('  Syncing files to workspace...'));
+            const cr = await ocAdapter.copyToWorkspace(ws.workspace);
+            console.log(`  ${chalk.green(`${cr.copied.length} files synced`)}`);
+          }
+
+          // Update config with all discovered workspaces
+          config.adapters.openclaw.workspaces = {};
+          for (const ws of workspaces) {
+            config.adapters.openclaw.workspaces[ws.id] = {
+              workspacePath: ws.workspace,
+              include: ['**/*'],
+              exclude: [
+                'node_modules/**', '.git/**', '.vercel/**',
+                '__pycache__/**', '*.db', '*.sqlite', '.openclaw/**',
+              ],
+              maxFileSizeBytes: 10 * 1024 * 1024,
+            };
+          }
+          setAdapterEnabled('openclaw', config, true);
+          await saveConfig(config);
+
+          await pushDeviceSettings(config);
+
+          console.log('');
+          console.log(chalk.green(`${displayName} adapter initialized successfully.`));
+          console.log(chalk.dim('Run "contextmate daemon install" to start persistent sync.'));
+          return;
         } else {
-          // Agent adapters: auto-detect workspace
+          // Claude adapter: auto-detect workspace
           console.log(chalk.dim(`Detecting ${displayName} workspace...`));
           const detected = await adapter.detect();
 
           if (!detected) {
             console.error(chalk.red(`Could not detect ${displayName} workspace.`));
-            if (agentName === 'openclaw') {
-              console.error(chalk.dim('  Expected at: ~/.openclaw/workspace'));
-            } else {
-              console.error(chalk.dim('  Expected at: ~/.claude'));
-            }
+            console.error(chalk.dim('  Expected at: ~/.claude'));
             process.exit(1);
           }
 
@@ -302,7 +357,20 @@ function createAdapterSubcommands(agentName: string, displayName: string): Comma
         // Update config
         setAdapterEnabled(agentName, config, true);
         if (agentName === 'openclaw') {
-          config.adapters.openclaw.workspacePath = workspacePath;
+          // For openclaw, discover all workspaces and populate config
+          const workspaces = await discoverWorkspaces();
+          config.adapters.openclaw.workspaces = {};
+          for (const ws of workspaces) {
+            config.adapters.openclaw.workspaces[ws.id] = {
+              workspacePath: ws.workspace,
+              include: ['**/*'],
+              exclude: [
+                'node_modules/**', '.git/**', '.vercel/**',
+                '__pycache__/**', '*.db', '*.sqlite', '.openclaw/**',
+              ],
+              maxFileSizeBytes: 10 * 1024 * 1024,
+            };
+          }
         } else if (agentName === 'claude') {
           config.adapters.claude.claudeDir = workspacePath;
         } else if (agentName === 'mirror') {
@@ -333,7 +401,6 @@ function createAdapterSubcommands(agentName: string, displayName: string): Comma
         }
 
         const config = await loadConfig();
-        const adapter = getAdapter(agentName, getAdapterOptions(agentName, config));
 
         if (!isAdapterEnabled(agentName, config)) {
           console.log(chalk.dim(`${displayName} adapter is not enabled.`));
@@ -341,24 +408,47 @@ function createAdapterSubcommands(agentName: string, displayName: string): Comma
           return;
         }
 
-        const workspacePath = getWorkspacePath(agentName, config);
-        const result = await adapter.verifySync(workspacePath);
-
         console.log('');
         console.log(chalk.bold(`${displayName} Adapter Status`));
         console.log(chalk.dim('─'.repeat(40)));
-        console.log(`  ${agentName === 'mirror' ? 'Target:' : 'Workspace:'} ${workspacePath}`);
-        console.log(`  Synced files: ${chalk.green(String(result.synced.length))}`);
-        console.log(`  Stale files:  ${chalk.red(String(result.stale.length))}`);
 
-        if (result.stale.length > 0) {
-          console.log('');
-          console.log(chalk.red('  Stale:'));
-          for (const b of result.stale) {
-            console.log(`    - ${b}`);
+        if (agentName === 'openclaw') {
+          for (const [agentId, ws] of Object.entries(config.adapters.openclaw.workspaces)) {
+            const ocAdapter = new OpenClawAdapter({
+              vaultPath: config.vault.path,
+              backupsPath: getBackupsPath(),
+              agentId,
+              exclude: ws.exclude,
+              maxFileSizeBytes: ws.maxFileSizeBytes,
+            });
+            const result = await ocAdapter.verifySync(ws.workspacePath);
+            console.log(`  Agent: ${agentId}`);
+            console.log(`  Workspace: ${ws.workspacePath}`);
+            console.log(`  Synced files: ${chalk.green(String(result.synced.length))}`);
+            console.log(`  Stale files:  ${chalk.red(String(result.stale.length))}`);
+            if (result.stale.length > 0) {
+              for (const b of result.stale) {
+                console.log(`    - ${b}`);
+              }
+            }
+            console.log('');
           }
+        } else {
+          const adapter = getAdapter(agentName, getAdapterOptions(agentName, config));
+          const workspacePath = getWorkspacePath(agentName, config);
+          const result = await adapter.verifySync(workspacePath);
+          console.log(`  ${agentName === 'mirror' ? 'Target:' : 'Workspace:'} ${workspacePath}`);
+          console.log(`  Synced files: ${chalk.green(String(result.synced.length))}`);
+          console.log(`  Stale files:  ${chalk.red(String(result.stale.length))}`);
+          if (result.stale.length > 0) {
+            console.log('');
+            console.log(chalk.red('  Stale:'));
+            for (const b of result.stale) {
+              console.log(`    - ${b}`);
+            }
+          }
+          console.log('');
         }
-        console.log('');
       } catch (err) {
         console.error(chalk.red(`Error: ${err instanceof Error ? err.message : String(err)}`));
         process.exit(1);

@@ -85,8 +85,10 @@ export const resetCommand = new Command('reset')
 
       try {
         console.log(chalk.dim('Disconnecting OpenClaw adapter...'));
-        const adapter = getAdapter('openclaw', adapterOpts);
-        await adapter.disconnect(config.adapters.openclaw.workspacePath);
+        for (const [agentId, ws] of Object.entries(config.adapters.openclaw.workspaces)) {
+          const adapter = getAdapter('openclaw', { ...adapterOpts, agentId });
+          await adapter.disconnect(ws.workspacePath);
+        }
         console.log(chalk.green('  OpenClaw adapter disconnected.'));
       } catch (err) {
         console.log(chalk.yellow(`  Warning: Could not disconnect OpenClaw adapter (${err instanceof Error ? err.message : String(err)})`));

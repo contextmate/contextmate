@@ -23,9 +23,12 @@ export interface ContextMateConfig {
   adapters: {
     openclaw: {
       enabled: boolean;
-      workspacePath: string;
-      extraFiles: string[];
-      extraGlobs: string[];
+      workspaces: Record<string, {
+        workspacePath: string;
+        include: string[];
+        exclude: string[];
+        maxFileSizeBytes: number;
+      }>;
     };
     claude: {
       enabled: boolean;
@@ -77,9 +80,7 @@ export function getDefaultConfig(): ContextMateConfig {
     adapters: {
       openclaw: {
         enabled: false,
-        workspacePath: join(homedir(), '.openclaw', 'workspace'),
-        extraFiles: [],
-        extraGlobs: [],
+        workspaces: {},
       },
       claude: {
         enabled: false,

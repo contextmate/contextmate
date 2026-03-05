@@ -1,5 +1,5 @@
 export { BaseAdapter, type AdapterOptions, type ImportResult, type CopyResult } from './base.js';
-export { OpenClawAdapter } from './openclaw.js';
+export { OpenClawAdapter, OpenClawGlobalSync, discoverWorkspaces, type OpenClawWorkspace } from './openclaw.js';
 export { ClaudeCodeAdapter } from './claude.js';
 export { MirrorAdapter } from './mirror.js';
 

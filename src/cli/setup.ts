@@ -29,6 +29,7 @@ import {
   type ContextMateConfig,
 } from '../config.js';
 import { getAdapter } from '../adapters/index.js';
+import { discoverWorkspaces, OpenClawAdapter } from '../adapters/openclaw.js';
 import { getBackupsPath, getPidFilePath, getSyncDbPath } from '../utils/paths.js';
 
 async function ask(prompt: string): Promise<string> {
@@ -93,6 +94,7 @@ async function pushDeviceSettings(
     adapters: {
       claude: config.adapters.claude.enabled,
       openclaw: config.adapters.openclaw.enabled,
+      openclawWorkspaces: Object.keys(config.adapters.openclaw.workspaces),
     },
   };
 
@@ -456,8 +458,6 @@ export const setupCommand = new Command('setup')
           vaultPath: config!.vault.path,
           backupsPath: getBackupsPath(),
           scanPaths: config!.adapters.claude.scanPaths,
-          extraFiles: config!.adapters.openclaw.extraFiles,
-          extraGlobs: config!.adapters.openclaw.extraGlobs,
           include: config!.adapters.mirror.include,
         });
 
@@ -487,39 +487,43 @@ export const setupCommand = new Command('setup')
       }
 
       // OpenClaw
-      const openclawDir = join(homedir(), '.openclaw', 'workspace');
-      let openclawDetected = false;
-      try {
-        await access(openclawDir);
-        openclawDetected = true;
-      } catch {
-        // Not found
-      }
+      const openclawWorkspaces = await discoverWorkspaces();
+      const openclawDetected = openclawWorkspaces.length > 0;
 
       if (openclawDetected) {
-        console.log(chalk.green('  ✓ OpenClaw detected'));
-        const adapter = getAdapter('openclaw', {
-          vaultPath: config!.vault.path,
-          backupsPath: getBackupsPath(),
-          scanPaths: [],
-          extraFiles: config!.adapters.openclaw.extraFiles,
-          extraGlobs: config!.adapters.openclaw.extraGlobs,
-          include: config!.adapters.mirror.include,
-        });
+        console.log(chalk.green(`  ✓ OpenClaw detected (${openclawWorkspaces.length} agent${openclawWorkspaces.length === 1 ? '' : 's'})`));
+        for (const ws of openclawWorkspaces) {
+          const label = ws.name ? `${ws.id} (${ws.name})` : ws.id;
+          console.log(chalk.dim(`    Agent: ${label}`));
 
-        console.log(chalk.dim('    Importing files...'));
-        const importResult = await adapter.import(openclawDir);
-        console.log(
-          `    ${chalk.green(`${importResult.imported.length} new`)}, ` +
-          `${chalk.dim(`${importResult.skipped.length} unchanged`)}`,
-        );
+          const adapter = new OpenClawAdapter({
+            vaultPath: config!.vault.path,
+            backupsPath: getBackupsPath(),
+            agentId: ws.id,
+          });
 
-        console.log(chalk.dim('    Syncing to workspace...'));
-        const copyResult = await adapter.copyToWorkspace(openclawDir);
-        console.log(`    ${chalk.green(`${copyResult.copied.length} files synced`)}`);
+          console.log(chalk.dim('    Importing files...'));
+          const importResult = await adapter.import(ws.workspace);
+          console.log(
+            `    ${chalk.green(`${importResult.imported.length} new`)}, ` +
+            `${chalk.dim(`${importResult.skipped.length} unchanged`)}`,
+          );
 
+          console.log(chalk.dim('    Syncing to workspace...'));
+          const copyResult = await adapter.copyToWorkspace(ws.workspace);
+          console.log(`    ${chalk.green(`${copyResult.copied.length} files synced`)}`);
+
+          config!.adapters.openclaw.workspaces[ws.id] = {
+            workspacePath: ws.workspace,
+            include: ['**/*'],
+            exclude: [
+              'node_modules/**', '.git/**', '.vercel/**',
+              '__pycache__/**', '*.db', '*.sqlite', '.openclaw/**',
+            ],
+            maxFileSizeBytes: 10 * 1024 * 1024,
+          };
+        }
         config!.adapters.openclaw.enabled = true;
-        config!.adapters.openclaw.workspacePath = openclawDir;
       } else {
         console.log(chalk.dim('  ○ OpenClaw not detected'));
       }
@@ -599,8 +603,6 @@ export const setupCommand = new Command('setup')
             vaultPath: config!.vault.path,
             backupsPath: getBackupsPath(),
             scanPaths: config!.adapters.claude.scanPaths,
-            extraFiles: config!.adapters.openclaw.extraFiles,
-            extraGlobs: config!.adapters.openclaw.extraGlobs,
             include: config!.adapters.mirror.include,
           });
           console.log(chalk.dim('  Scanning for project skills...'));
@@ -795,43 +797,69 @@ export const setupCommand = new Command('setup')
         }, config!.sync.pollIntervalMs);
       }
 
-      // Start OpenClaw workspace watcher if enabled
-      let openclawInterval: ReturnType<typeof setInterval> | null = null;
-      let openclawWatcher: import('../sync/watcher.js').FileWatcher | null = null;
-      if (config!.adapters.openclaw.enabled && config!.adapters.openclaw.workspacePath) {
-        const { OpenClawAdapter } = await import('../adapters/openclaw.js');
+      // Start OpenClaw workspace watchers if enabled
+      const openclawInstances: Array<{ interval: ReturnType<typeof setInterval>; watcher: import('../sync/watcher.js').FileWatcher }> = [];
+      if (config!.adapters.openclaw.enabled) {
         const { FileWatcher } = await import('../sync/watcher.js');
-        const openclawAdapter = new OpenClawAdapter({
-          vaultPath: config!.vault.path,
-          backupsPath: getBackupsPath(),
-          extraFiles: config!.adapters.openclaw.extraFiles,
-          extraGlobs: config!.adapters.openclaw.extraGlobs,
-        });
-        const workspacePath = config!.adapters.openclaw.workspacePath;
+        for (const [agentId, ws] of Object.entries(config!.adapters.openclaw.workspaces)) {
+          const openclawAdapter = new OpenClawAdapter({
+            vaultPath: config!.vault.path,
+            backupsPath: getBackupsPath(),
+            agentId,
+            exclude: ws.exclude,
+            maxFileSizeBytes: ws.maxFileSizeBytes,
+          });
+          const workspacePath = ws.workspacePath;
 
-        await openclawAdapter.syncBack(workspacePath);
+          await openclawAdapter.syncBack(workspacePath);
 
-        openclawWatcher = new FileWatcher(workspacePath, config!.sync.debounceMs);
-        openclawWatcher.start();
+          const watcher = new FileWatcher(workspacePath, config!.sync.debounceMs);
+          watcher.start();
 
-        const handleOpenClawChange = async () => {
-          try {
-            await openclawAdapter.syncBack(workspacePath);
-          } catch {
-            // Non-critical
-          }
+          const handleChange = async () => {
+            try {
+              await openclawAdapter.syncBack(workspacePath);
+            } catch {
+              // Non-critical
+            }
+          };
+          watcher.on('file-changed', () => void handleChange());
+          watcher.on('file-added', () => void handleChange());
+
+          const interval = setInterval(async () => {
+            try {
+              await openclawAdapter.syncBack(workspacePath);
+              await openclawAdapter.syncFromVault(workspacePath);
+            } catch {
+              // Non-critical
+            }
+          }, config!.sync.pollIntervalMs);
+
+          openclawInstances.push({ interval, watcher });
+        }
+
+        // Global sync: config, sessions, cron
+        const { OpenClawGlobalSync, getOpenClawRoot } = await import('../adapters/openclaw.js');
+        const globalSync = new OpenClawGlobalSync(config!.vault.path);
+        await globalSync.syncBack();
+
+        const globalWatcher = new FileWatcher(getOpenClawRoot(), config!.sync.debounceMs);
+        globalWatcher.start();
+
+        const handleGlobalChange = async () => {
+          try { await globalSync.syncBack(); } catch { /* Non-critical */ }
         };
-        openclawWatcher.on('file-changed', () => void handleOpenClawChange());
-        openclawWatcher.on('file-added', () => void handleOpenClawChange());
+        globalWatcher.on('file-changed', () => void handleGlobalChange());
+        globalWatcher.on('file-added', () => void handleGlobalChange());
 
-        openclawInterval = setInterval(async () => {
+        const globalInterval = setInterval(async () => {
           try {
-            await openclawAdapter.syncBack(workspacePath);
-            await openclawAdapter.syncFromVault(workspacePath);
-          } catch {
-            // Non-critical
-          }
+            await globalSync.syncBack();
+            await globalSync.syncFromVault();
+          } catch { /* Non-critical */ }
         }, config!.sync.pollIntervalMs);
+
+        openclawInstances.push({ interval: globalInterval, watcher: globalWatcher });
       }
 
       // Start Claude workspace watcher if enabled
@@ -876,8 +904,10 @@ export const setupCommand = new Command('setup')
         console.log(chalk.dim('\nStopping daemon...'));
         if (mirrorInterval) clearInterval(mirrorInterval);
         if (mirrorWatcher) await mirrorWatcher.stop();
-        if (openclawInterval) clearInterval(openclawInterval);
-        if (openclawWatcher) await openclawWatcher.stop();
+        for (const oc of openclawInstances) {
+          clearInterval(oc.interval);
+          await oc.watcher.stop();
+        }
         if (claudeInterval) clearInterval(claudeInterval);
         if (claudeWatcher) await claudeWatcher.stop();
         await engine.stop();

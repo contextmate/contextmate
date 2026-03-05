@@ -96,7 +96,9 @@ export const statusCommand = new Command('status')
       const openclawStatus = config.adapters.openclaw.enabled
         ? chalk.green('enabled')
         : chalk.dim('disabled');
-      console.log(`    OpenClaw:    ${openclawStatus}  (${config.adapters.openclaw.workspacePath})`);
+      const workspaceIds = Object.keys(config.adapters.openclaw.workspaces);
+      const workspaceLabel = workspaceIds.length > 0 ? workspaceIds.join(', ') : 'none';
+      console.log(`    OpenClaw:    ${openclawStatus}  (${workspaceLabel})`);
 
       const claudeStatus = config.adapters.claude.enabled
         ? chalk.green('enabled')

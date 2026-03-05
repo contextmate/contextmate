@@ -4,10 +4,13 @@ import { join, dirname, relative } from 'node:path';
 export interface AdapterOptions {
   vaultPath: string;
   backupsPath: string;
+  agentId?: string;
   scanPaths?: string[];
   extraFiles?: string[];
   extraGlobs?: string[];
   include?: string[];
+  exclude?: string[];
+  maxFileSizeBytes?: number;
 }
 
 export interface ImportResult {
