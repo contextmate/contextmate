@@ -8,11 +8,12 @@ import { logCommand } from './log.js';
 import { filesCommand } from './files.js';
 import { resetCommand } from './reset.js';
 import { setupCommand } from './setup.js';
+import { VERSION } from '../utils/version.js';
 
 export const program = new Command()
   .name('contextmate')
   .description('Zero-knowledge encrypted sync for AI agent context')
-  .version('0.3.6');
+  .version(VERSION);
 
 program.addCommand(setupCommand);
 program.addCommand(initCommand);

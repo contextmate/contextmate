@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import type { ContextMateConfig } from '../config.js';
 import { getVersionFilePath } from '../utils/paths.js';
+import { VERSION } from '../utils/version.js';
 
 const execFile = promisify(execFileCb);
 
@@ -16,8 +17,6 @@ const SYSTEMD_USER_DIR = join(homedir(), '.config', 'systemd', 'user');
 const SYSTEMD_SERVICE = join(SYSTEMD_USER_DIR, 'contextmate.service');
 const SYSTEMD_PATH_UNIT = join(SYSTEMD_USER_DIR, 'contextmate-version.path');
 const SYSTEMD_RESTART_SERVICE = join(SYSTEMD_USER_DIR, 'contextmate-restart.service');
-
-const CLI_VERSION = '0.3.6';
 
 function getScriptPath(): string {
   const __filename = fileURLToPath(import.meta.url);
@@ -31,7 +30,7 @@ function escapeXml(s: string): string {
 
 export async function writeVersionFile(config: ContextMateConfig): Promise<void> {
   const versionFile = getVersionFilePath(config);
-  await writeFile(versionFile, CLI_VERSION, 'utf-8');
+  await writeFile(versionFile, VERSION, 'utf-8');
 }
 
 function generatePlist(config: ContextMateConfig): string {
