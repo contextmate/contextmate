@@ -323,6 +323,26 @@
   flex-shrink: 0;
 }
 
+.tree-delete {
+  display: none;
+  margin-left: auto;
+  padding: 0 0.3rem;
+  font-size: 0.6875rem;
+  color: #666;
+  background: none;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.tree-delete:hover {
+  color: #ff6b6b;
+}
+
+.tree-item:hover .tree-delete {
+  display: inline;
+}
+
 /* Main content area */
 .main-content {
   overflow: auto;

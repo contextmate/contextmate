@@ -127,16 +127,22 @@ function getFolderLabel(path: string): string | null {
   return null;
 }
 
+function collectFilePaths(node: TreeNode): string[] {
+  if (!node.isDir) return [node.path];
+  return node.children.flatMap(collectFilePaths);
+}
+
 interface TreeItemProps {
   node: TreeNode;
   depth: number;
   selectedFile: string | null;
   onSelect: (path: string) => void;
+  onDelete: (paths: string[], label: string) => void;
   collapsed: Set<string>;
   onToggle: (path: string) => void;
 }
 
-function TreeItem({ node, depth, selectedFile, onSelect, collapsed, onToggle }: TreeItemProps) {
+function TreeItem({ node, depth, selectedFile, onSelect, onDelete, collapsed, onToggle }: TreeItemProps) {
   if (node.isDir) {
     const expanded = !collapsed.has(node.path);
     const label = getFolderLabel(node.path);
@@ -151,6 +157,17 @@ function TreeItem({ node, depth, selectedFile, onSelect, collapsed, onToggle }: 
           <span className="tree-icon">[/]</span>
           <span className="tree-name">{node.name}</span>
           {label && <span className="tree-label">{label}</span>}
+          <button
+            className="tree-delete"
+            onClick={(e) => {
+              e.stopPropagation();
+              const paths = collectFilePaths(node);
+              onDelete(paths, `folder "${node.name}" (${paths.length} file${paths.length === 1 ? '' : 's'})`);
+            }}
+            title={`Delete folder ${node.name}`}
+          >
+            X
+          </button>
         </div>
         {expanded &&
           node.children.map((child) => (
@@ -160,6 +177,7 @@ function TreeItem({ node, depth, selectedFile, onSelect, collapsed, onToggle }: 
               depth={depth + 1}
               selectedFile={selectedFile}
               onSelect={onSelect}
+              onDelete={onDelete}
               collapsed={collapsed}
               onToggle={onToggle}
             />
@@ -178,6 +196,16 @@ function TreeItem({ node, depth, selectedFile, onSelect, collapsed, onToggle }: 
     >
       <span className="tree-icon">{getFileIcon(node.name)}</span>
       <span className="tree-name">{node.name}</span>
+      <button
+        className="tree-delete"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete([node.path], `"${node.name}"`);
+        }}
+        title={`Delete ${node.name}`}
+      >
+        X
+      </button>
     </div>
   );
 }
@@ -247,6 +275,25 @@ export function FileTree({ onSelect, selectedFile, onFileCountChange, onFilesLoa
 
   const tree = useMemo(() => buildTree(filtered), [filtered]);
 
+  const handleDelete = useCallback(async (paths: string[], label: string) => {
+    if (!apiClient) return;
+    if (!window.confirm(`Delete ${label}? This cannot be undone.`)) return;
+
+    try {
+      for (const p of paths) {
+        await apiClient.deleteFile(p);
+      }
+      setFiles((prev) => {
+        const deleted = new Set(paths);
+        const next = prev.filter((f) => !deleted.has(f.path));
+        onFileCountChange(next.length);
+        return next;
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete');
+    }
+  }, [apiClient, onFileCountChange]);
+
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
   const handleToggle = useCallback((path: string) => {
     setCollapsed((prev) => {
@@ -292,6 +339,7 @@ export function FileTree({ onSelect, selectedFile, onFileCountChange, onFilesLoa
             depth={0}
             selectedFile={selectedFile}
             onSelect={onSelect}
+            onDelete={handleDelete}
             collapsed={collapsed}
             onToggle={handleToggle}
           />
