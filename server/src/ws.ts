@@ -1,6 +1,7 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import type { Server } from 'node:http';
 import { verifyToken } from './middleware/auth.js';
+import { getDb } from './db.js';
 
 interface TrackedConnection {
   ws: WebSocket;
@@ -75,6 +76,14 @@ export function setupWebSocket(server: Server): void {
         const msg = JSON.parse(data.toString());
         if (msg.type === 'register-device' && msg.deviceId) {
           tracked.deviceId = msg.deviceId;
+          // Update last_seen for this device
+          try {
+            const db = getDb();
+            db.prepare('UPDATE devices SET last_seen = ? WHERE id = ? AND user_id = ?')
+              .run(Date.now(), msg.deviceId, payload.userId);
+          } catch {
+            // Non-critical, ignore
+          }
         }
       } catch {
         // Ignore malformed messages

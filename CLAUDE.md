@@ -112,6 +112,11 @@ Passphrase → Argon2id(salt) → Master Key
 - `SyncEngine.syncAll()` discovers untracked local files and uploads them
 - `listRemoteFiles()` returns `{ files: [...] }` — extract `.files`
 
+## Deployment
+
+- **Server + web dashboard**: Hosted on Railway. Auto-deploys on push to `main` — no manual deploy needed.
+- **CLI (`contextmate` npm package)**: Published manually via `npm publish` (requires OTP 2FA). Bump version in `package.json` before publishing.
+
 ## Common Pitfalls
 
 - **Double URL encoding**: Server must decode paths from URLs before storing/querying

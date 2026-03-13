@@ -122,6 +122,10 @@ authRoutes.post('/login', async (c) => {
     return c.json({ error: 'Invalid credentials' }, 401);
   }
 
+  // Update last_seen for all devices of this user
+  db.prepare('UPDATE devices SET last_seen = ? WHERE user_id = ?')
+    .run(Date.now(), user.id);
+
   const token = signToken(user.id);
   return c.json({ userId: user.id, token });
 });

@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir, readdir, stat } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir, stat, unlink } from 'node:fs/promises';
 import { join, dirname, relative } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { FileWatcher } from './watcher.js';
@@ -380,6 +380,21 @@ export class SyncEngine {
         }
       }
 
+      // Remove files that were deleted remotely while we were offline
+      for (const local of localFiles) {
+        if (!remoteFileMap.has(local.path)) {
+          // File is tracked locally but no longer on remote — it was deleted
+          this.stateDb.removeFile(local.path);
+          try {
+            const absolutePath = join(this.config.vault.path, local.path);
+            await unlink(absolutePath);
+          } catch {
+            // File may already be missing from disk
+          }
+          this.stateDb.addSyncLog('delete', local.path, 'Remote file deleted');
+        }
+      }
+
       // Pull remote changes
       for (const remote of remoteFiles) {
         const local = localFileMap.get(remote.path);
@@ -457,6 +472,15 @@ export class SyncEngine {
   private async handleRemoteDelete(path: string): Promise<void> {
     if (!this.stateDb) return;
     this.stateDb.removeFile(path);
+
+    // Delete the local vault file so syncAll() doesn't re-upload it
+    try {
+      const absolutePath = join(this.config.vault.path, path);
+      await unlink(absolutePath);
+    } catch {
+      // File may already be missing
+    }
+
     this.stateDb.addSyncLog('delete', path, 'Remote file deleted');
   }
 
