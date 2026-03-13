@@ -255,6 +255,11 @@ export class OpenClawAdapter extends BaseAdapter {
           continue;
         }
 
+        // Last-writer-wins: skip if workspace file is newer than vault file
+        if (!(await this.shouldSyncToWorkspace(vaultFilePath, destPath))) {
+          continue;
+        }
+
         await mkdir(dirname(destPath), { recursive: true });
         await copyFile(vaultFilePath, destPath);
         synced.push(relativeSrc);
@@ -485,6 +490,11 @@ export class OpenClawGlobalSync {
       try {
         const destContent = await readFile(destPath);
         if (Buffer.compare(vaultContent, destContent) === 0) {
+          return false;
+        }
+        // Last-writer-wins: skip if destination is newer than vault
+        const [vStat, dStat] = await Promise.all([stat(vaultFilePath), stat(destPath)]);
+        if (dStat.mtimeMs > vStat.mtimeMs) {
           return false;
         }
       } catch {

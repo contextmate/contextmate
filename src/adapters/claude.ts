@@ -186,7 +186,8 @@ export class ClaudeCodeAdapter extends BaseAdapter {
     const destClaudeMd = join(claudeDir, 'CLAUDE.md');
     try {
       await access(vaultClaudeMd);
-      if (!(await this.filesMatch(vaultClaudeMd, destClaudeMd))) {
+      if (!(await this.filesMatch(vaultClaudeMd, destClaudeMd))
+        && await this.shouldSyncToWorkspace(vaultClaudeMd, destClaudeMd)) {
         await mkdir(dirname(destClaudeMd), { recursive: true });
         await copyFile(vaultClaudeMd, destClaudeMd);
         synced.push('CLAUDE.md');
@@ -350,7 +351,8 @@ export class ClaudeCodeAdapter extends BaseAdapter {
 
       try {
         await access(vaultSkillFile);
-        if (!(await this.filesMatch(vaultSkillFile, destSkillFile))) {
+        if (!(await this.filesMatch(vaultSkillFile, destSkillFile))
+          && await this.shouldSyncToWorkspace(vaultSkillFile, destSkillFile)) {
           await mkdir(dirname(destSkillFile), { recursive: true });
           await copyFile(vaultSkillFile, destSkillFile);
           synced.push(join('skills', name, 'SKILL.md'));
@@ -385,7 +387,8 @@ export class ClaudeCodeAdapter extends BaseAdapter {
 
       const destFile = join(targetDir, name);
       try {
-        if (!(await this.filesMatch(vaultFile, destFile))) {
+        if (!(await this.filesMatch(vaultFile, destFile))
+          && await this.shouldSyncToWorkspace(vaultFile, destFile)) {
           await mkdir(dirname(destFile), { recursive: true });
           await copyFile(vaultFile, destFile);
           synced.push(`${prefix}${name}`);

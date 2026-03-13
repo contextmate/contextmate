@@ -69,6 +69,19 @@ export abstract class BaseAdapter {
     }
   }
 
+  /**
+   * Check if a vault file should overwrite a workspace file.
+   * Returns false if the workspace file has a more recent mtime (last-writer-wins).
+   */
+  protected async shouldSyncToWorkspace(vaultFile: string, workspaceFile: string): Promise<boolean> {
+    try {
+      const [vaultStat, wsStat] = await Promise.all([stat(vaultFile), stat(workspaceFile)]);
+      return vaultStat.mtimeMs >= wsStat.mtimeMs;
+    } catch {
+      return true; // Workspace file doesn't exist — always copy
+    }
+  }
+
   protected async fileExists(path: string): Promise<boolean> {
     try {
       const s = await stat(path);
