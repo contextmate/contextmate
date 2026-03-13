@@ -419,6 +419,17 @@
   color: #4fc3f7;
 }
 
+.file-viewer-lang {
+  font-size: 0.6875rem;
+  color: #888;
+  background: #1a2744;
+  padding: 0.125rem 0.5rem;
+  border-radius: 3px;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
 .file-viewer-meta {
   font-size: 0.75rem;
   color: #666;
@@ -538,6 +549,40 @@
 
 .file-viewer-editor:focus {
   border-color: #4fc3f7;
+}
+
+.file-viewer-code {
+  margin: 0;
+  background: #0f1729;
+  border: 1px solid #2a2a4a;
+  border-radius: 6px;
+  padding: 1rem;
+  overflow: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: #d0d0d0;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.file-viewer-code code {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.file-viewer-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+.file-viewer-image img {
+  max-width: 100%;
+  max-height: calc(100vh - 200px);
+  border-radius: 6px;
+  object-fit: contain;
 }
 
 .file-viewer-loading {

@@ -2,6 +2,31 @@ import { useEffect, useState, useCallback, useRef, type MouseEvent } from 'react
 import { useAuth } from '../context/AuthContext.tsx';
 import { decryptData, encryptData, bytesToHex, deriveKeyForPath } from '../crypto/browser-crypto.ts';
 
+const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.ico', '.bmp']);
+const CODE_EXTS: Record<string, string> = {
+  '.ts': 'typescript', '.tsx': 'tsx', '.js': 'javascript', '.jsx': 'jsx',
+  '.py': 'python', '.json': 'json', '.yaml': 'yaml', '.yml': 'yaml',
+  '.toml': 'toml', '.sh': 'shell', '.bash': 'shell', '.zsh': 'shell',
+  '.css': 'css', '.html': 'html', '.xml': 'xml', '.sql': 'sql',
+  '.rs': 'rust', '.go': 'go', '.rb': 'ruby', '.java': 'java',
+  '.c': 'c', '.cpp': 'cpp', '.h': 'c', '.hpp': 'cpp',
+  '.swift': 'swift', '.kt': 'kotlin', '.lua': 'lua',
+  '.env': 'env', '.ini': 'ini', '.cfg': 'ini',
+};
+
+function getFileExt(path: string): string {
+  const dot = path.lastIndexOf('.');
+  return dot >= 0 ? path.slice(dot).toLowerCase() : '';
+}
+
+function getFileType(path: string): 'image' | 'code' | 'markdown' | 'text' {
+  const ext = getFileExt(path);
+  if (IMAGE_EXTS.has(ext)) return 'image';
+  if (ext === '.md') return 'markdown';
+  if (ext in CODE_EXTS) return 'code';
+  return 'text';
+}
+
 function simpleMarkdownToHtml(md: string): string {
   let html = md
     // Escape HTML
@@ -48,6 +73,7 @@ interface FileViewerProps {
 export function FileViewer({ filePath, onDirtyChange }: FileViewerProps) {
   const { apiClient, vaultKeyRaw } = useAuth();
   const [content, setContent] = useState('');
+  const [imageBlobUrl, setImageBlobUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -55,6 +81,7 @@ export function FileViewer({ filePath, onDirtyChange }: FileViewerProps) {
   const [saving, setSaving] = useState(false);
   const [version, setVersion] = useState(1);
   const dirtyRef = useRef(false);
+  const fileType = getFileType(filePath);
 
   // Track dirty state for beforeunload and parent notification
   const isDirty = editing && editContent !== content;
@@ -80,17 +107,34 @@ export function FileViewer({ filePath, onDirtyChange }: FileViewerProps) {
         setLoading(true);
         setError(null);
         setEditing(false);
+        setImageBlobUrl(null);
 
         const { data, version: fileVersion } = await apiClient!.downloadFile(filePath);
         const encrypted = new Uint8Array(data);
         const fileKey = await deriveKeyForPath(vaultKeyRaw!, filePath);
         const decrypted = await decryptData(encrypted, fileKey);
-        const text = new TextDecoder().decode(decrypted);
 
         if (!cancelled) {
-          setContent(text);
-          setEditContent(text);
           setVersion(fileVersion);
+
+          if (getFileType(filePath) === 'image') {
+            const ext = getFileExt(filePath);
+            const mime = ext === '.svg' ? 'image/svg+xml'
+              : ext === '.png' ? 'image/png'
+              : ext === '.gif' ? 'image/gif'
+              : ext === '.webp' ? 'image/webp'
+              : ext === '.ico' ? 'image/x-icon'
+              : ext === '.bmp' ? 'image/bmp'
+              : 'image/jpeg';
+            const blob = new Blob([decrypted as BlobPart], { type: mime });
+            setImageBlobUrl(URL.createObjectURL(blob));
+            setContent('');
+            setEditContent('');
+          } else {
+            const text = new TextDecoder().decode(decrypted);
+            setContent(text);
+            setEditContent(text);
+          }
         }
       } catch (err) {
         if (!cancelled) {
@@ -102,7 +146,11 @@ export function FileViewer({ filePath, onDirtyChange }: FileViewerProps) {
     }
 
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      // Clean up blob URL on unmount or path change
+      setImageBlobUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
+    };
   }, [filePath, apiClient, vaultKeyRaw]);
 
   const handleSave = useCallback(async () => {
@@ -178,44 +226,53 @@ export function FileViewer({ filePath, onDirtyChange }: FileViewerProps) {
         >
           ⧉
         </button>
+        {fileType !== 'image' && <span className="file-viewer-lang">{fileType === 'code' ? CODE_EXTS[getFileExt(filePath)] || 'code' : fileType}</span>}
         <span className="file-viewer-meta">v{version}</span>
         <div className="file-viewer-actions">
-          {editing ? (
-            <>
-              <button
-                className="btn btn-secondary"
-                onClick={() => {
-                  if (editContent !== content && !window.confirm('Discard unsaved changes?')) return;
-                  setEditing(false);
-                  setEditContent(content);
-                }}
-                disabled={saving}
-              >
-                Cancel
+          {fileType !== 'image' && (
+            editing ? (
+              <>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    if (editContent !== content && !window.confirm('Discard unsaved changes?')) return;
+                    setEditing(false);
+                    setEditContent(content);
+                  }}
+                  disabled={saving}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn btn-primary"
+                  onClick={handleSave}
+                  disabled={saving}
+                >
+                  {saving ? 'Encrypting...' : 'Save'}
+                </button>
+              </>
+            ) : (
+              <button className="btn btn-secondary" onClick={() => setEditing(true)}>
+                Edit
               </button>
-              <button
-                className="btn btn-primary"
-                onClick={handleSave}
-                disabled={saving}
-              >
-                {saving ? 'Encrypting...' : 'Save'}
-              </button>
-            </>
-          ) : (
-            <button className="btn btn-secondary" onClick={() => setEditing(true)}>
-              Edit
-            </button>
+            )
           )}
         </div>
       </div>
       <div className="file-viewer-body">
-        {editing ? (
+        {fileType === 'image' && imageBlobUrl ? (
+          <div className="file-viewer-image">
+            <img src={imageBlobUrl} alt={filePath} />
+          </div>
+        ) : editing ? (
           <textarea
             className="file-viewer-editor"
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
             spellCheck={false}
           />
+        ) : fileType === 'code' || fileType === 'text' ? (
+          <pre className="file-viewer-code"><code>{content}</code></pre>
         ) : (
           <div
             className="file-viewer-content"
