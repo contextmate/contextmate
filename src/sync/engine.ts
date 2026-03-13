@@ -218,6 +218,9 @@ export class SyncEngine {
     if (!this.stateDb) return;
 
     try {
+      // Clear any deletion tombstone — file is back on remote
+      this.stateDb.removeDeletion(path);
+
       // Check state db - skip if same version
       const existing = this.stateDb.getFile(path);
       if (existing && existing.version >= version) {
@@ -327,6 +330,16 @@ export class SyncEngine {
       for (const filePath of localDiskFiles) {
         if (filePath.endsWith('.conflict.md')) continue;
 
+        // Skip files that were deleted remotely — adapter may have recreated them
+        if (this.stateDb.isDeletion(filePath)) {
+          try {
+            await unlink(join(this.config.vault.path, filePath));
+          } catch {
+            // Already gone
+          }
+          continue;
+        }
+
         try {
           const absolutePath = join(this.config.vault.path, filePath);
           const content = await readFile(absolutePath);
@@ -385,6 +398,7 @@ export class SyncEngine {
         if (!remoteFileMap.has(local.path)) {
           // File is tracked locally but no longer on remote — it was deleted
           this.stateDb.removeFile(local.path);
+          this.stateDb.addDeletion(local.path);
           try {
             const absolutePath = join(this.config.vault.path, local.path);
             await unlink(absolutePath);
@@ -397,6 +411,9 @@ export class SyncEngine {
 
       // Pull remote changes
       for (const remote of remoteFiles) {
+        // Clear any deletion tombstone — file exists on remote
+        this.stateDb.removeDeletion(remote.path);
+
         const local = localFileMap.get(remote.path);
 
         // Skip if we already have this version
@@ -472,6 +489,7 @@ export class SyncEngine {
   private async handleRemoteDelete(path: string): Promise<void> {
     if (!this.stateDb) return;
     this.stateDb.removeFile(path);
+    this.stateDb.addDeletion(path);
 
     // Delete the local vault file so syncAll() doesn't re-upload it
     try {

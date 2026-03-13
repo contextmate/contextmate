@@ -55,6 +55,11 @@ export class SyncStateDB {
         timestamp INTEGER NOT NULL,
         details TEXT
       );
+
+      CREATE TABLE IF NOT EXISTS deletions (
+        path TEXT PRIMARY KEY,
+        deleted_at INTEGER NOT NULL
+      );
     `);
   }
 
@@ -148,6 +153,20 @@ export class SyncStateDB {
 
   removeFile(path: string): void {
     this.db.prepare('DELETE FROM files WHERE path = ?').run(path);
+  }
+
+  addDeletion(path: string): void {
+    this.db.prepare(
+      'INSERT OR REPLACE INTO deletions (path, deleted_at) VALUES (?, ?)',
+    ).run(path, Date.now());
+  }
+
+  isDeletion(path: string): boolean {
+    return !!this.db.prepare('SELECT 1 FROM deletions WHERE path = ?').get(path);
+  }
+
+  removeDeletion(path: string): void {
+    this.db.prepare('DELETE FROM deletions WHERE path = ?').run(path);
   }
 
   addSyncLog(action: string, path: string, details?: string): void {
