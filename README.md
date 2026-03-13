@@ -139,7 +139,7 @@ You can run your own ContextMate server instead of using the hosted service.
 
 ### Deploy to Railway
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/TS9WPD)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/contextmate)
 
 Railway will provision a server with persistent storage. The `JWT_SECRET` is auto-generated on first start.
 
