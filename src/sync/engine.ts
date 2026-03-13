@@ -421,8 +421,8 @@ export class SyncEngine {
 
       // Pull remote changes
       for (const remote of remoteFiles) {
-        // Clear any deletion tombstone — file exists on remote
-        this.stateDb.removeDeletion(remote.path);
+        // Skip files with deletion tombstones — pending server DELETE
+        if (this.stateDb.isDeletion(remote.path)) continue;
 
         const local = localFileMap.get(remote.path);
 
@@ -492,6 +492,9 @@ export class SyncEngine {
 
   private async handleLocalDelete(relativePath: string): Promise<void> {
     if (!this.stateDb) return;
+
+    // Record tombstone FIRST to prevent syncAll() from re-downloading
+    this.stateDb.addDeletion(relativePath);
     this.stateDb.removeFile(relativePath);
 
     // Propagate deletion to server
