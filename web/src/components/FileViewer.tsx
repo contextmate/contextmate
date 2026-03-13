@@ -212,11 +212,11 @@ export function FileViewer({ filePath, onDirtyChange }: FileViewerProps) {
         <span className="file-viewer-path">{filePath}</span>
         <button
           className="file-viewer-copy"
-          title="Copy file contents"
+          title="Copy file path"
           onClick={async (e: MouseEvent) => {
             const btn = e.currentTarget;
             try {
-              await navigator.clipboard.writeText(content);
+              await navigator.clipboard.writeText(filePath);
               btn.textContent = '✓';
               setTimeout(() => { btn.textContent = '⧉'; }, 1500);
             } catch {
