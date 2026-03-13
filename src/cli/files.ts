@@ -285,8 +285,9 @@ filesCommand
             // File may not exist locally
           }
 
-          // Delete from sync DB
+          // Delete from sync DB and record tombstone to prevent re-upload
           db.removeFile(file.path);
+          db.addDeletion(file.path);
           db.addSyncLog('delete', file.path, 'Deleted via CLI');
 
           deleted++;
