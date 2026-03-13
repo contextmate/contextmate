@@ -133,6 +133,50 @@ Verify the new files are tracked:
 contextmate files
 ```
 
+## Self-Hosting
+
+You can run your own ContextMate server instead of using the hosted service.
+
+### Deploy to Railway
+
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/contextmate)
+
+Railway will provision a server with persistent storage. The `JWT_SECRET` is auto-generated on first start.
+
+### Docker Compose
+
+```bash
+git clone https://github.com/contextmate/contextmate.git
+cd contextmate
+docker compose up -d
+```
+
+The server stores data in a Docker volume at `/app/data`. To customize, copy `.env.example` to `.env` and edit as needed.
+
+### Connect the CLI
+
+During `contextmate setup`, enter your server URL when prompted:
+
+```
+Server URL (Enter for hosted service): https://your-server.example.com
+```
+
+Or edit `~/.contextmate/config.toml` directly:
+
+```toml
+[server]
+url = "https://your-server.example.com"
+```
+
+Then restart the daemon: `contextmate daemon stop && contextmate daemon start`
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `JWT_SECRET` | auto-generated | JWT signing secret. Set explicitly for multi-instance deployments. |
+| `PORT` | `3000` | Server port. |
+
 ## Architecture
 
 ```

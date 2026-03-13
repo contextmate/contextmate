@@ -1,0 +1,16 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    ports:
+      - "${PORT:-3000}:${PORT:-3000}"
+    environment:
+      - JWT_SECRET=${JWT_SECRET:-}
+      - PORT=${PORT:-3000}
+    volumes:
+      - data:/app/data
+    restart: unless-stopped
+
+volumes:
+  data:

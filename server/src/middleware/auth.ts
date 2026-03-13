@@ -1,11 +1,28 @@
 import { Context, Next } from 'hono';
 import jwt from 'jsonwebtoken';
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import { getDb } from '../db.js';
 
-const JWT_SECRET: string = process.env.JWT_SECRET ?? (() => {
-  throw new Error('JWT_SECRET environment variable is required. Generate one with: openssl rand -base64 32');
-})();
+function resolveJwtSecret(): string {
+  if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
+
+  // Auto-generate and persist for single-instance deploys
+  const secretPath = path.join('data', 'jwt-secret.txt');
+  try {
+    return fs.readFileSync(secretPath, 'utf-8').trim();
+  } catch {
+    // File doesn't exist — generate a new secret
+    const secret = crypto.randomBytes(32).toString('hex');
+    fs.mkdirSync('data', { recursive: true });
+    fs.writeFileSync(secretPath, secret, { mode: 0o600 });
+    console.warn('[auth] No JWT_SECRET env var — auto-generated and saved to data/jwt-secret.txt');
+    return secret;
+  }
+}
+
+const JWT_SECRET: string = resolveJwtSecret();
 
 export interface AuthContext {
   userId: string;

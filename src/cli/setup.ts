@@ -244,6 +244,19 @@ export const setupCommand = new Command('setup')
         }
 
         config = await loadConfig();
+
+        // Ask for server URL
+        const serverInput = await ask(chalk.bold(`Server URL (Enter for ${config.server.url}): `));
+        const serverTrimmed = serverInput.trim();
+        if (serverTrimmed) {
+          try {
+            new URL(serverTrimmed);
+            config.server.url = serverTrimmed.replace(/\/+$/, '');
+          } catch {
+            console.error(chalk.red('Error: Invalid URL.'));
+            process.exit(1);
+          }
+        }
         userId = existingAuth.userId;
         token = existingAuth.token;
         deviceId = existingAuth.deviceId || null;
@@ -271,7 +284,22 @@ export const setupCommand = new Command('setup')
           process.exit(1);
         }
       } else {
-        // Fresh setup
+        // Fresh setup — ask for server URL first
+        const defaultUrl = 'https://api.contextmate.dev';
+        const serverInput = await ask(chalk.bold(`Server URL (Enter for hosted service): `));
+        const serverTrimmed = serverInput.trim();
+        let serverUrl = defaultUrl;
+        if (serverTrimmed) {
+          try {
+            new URL(serverTrimmed);
+            serverUrl = serverTrimmed.replace(/\/+$/, '');
+          } catch {
+            console.error(chalk.red('Error: Invalid URL.'));
+            process.exit(1);
+          }
+        }
+        console.log('');
+
         console.log('  1. Create new account');
         console.log('  2. Log into existing account');
         console.log('');
@@ -294,6 +322,7 @@ export const setupCommand = new Command('setup')
           }
 
           config = getDefaultConfig();
+          config.server.url = serverUrl;
           await ensureDirectories(config);
           await saveConfig(config);
 
@@ -370,6 +399,7 @@ export const setupCommand = new Command('setup')
           vaultKey = deriveVaultKey(masterKey);
 
           config = getDefaultConfig();
+          config.server.url = serverUrl;
           await ensureDirectories(config);
           await saveConfig(config);
 

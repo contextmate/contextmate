@@ -1,0 +1,122 @@
+---
+
+---
+
+<section id="self-hosting" class="py-24 px-6">
+  <div class="max-w-6xl mx-auto">
+    <h2 class="font-mono text-3xl md:text-4xl font-bold text-center mb-4">
+      Your server, your data
+    </h2>
+    <p class="text-brand-muted text-center mb-16 max-w-2xl mx-auto">
+      ContextMate is fully open source. Run your own server and keep everything on your infrastructure.
+    </p>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <!-- Railway Card -->
+      <div class="selfhost-card selfhost-card-accent rounded-2xl p-8">
+        <div class="w-12 h-12 rounded-xl bg-sky-500/15 flex items-center justify-center">
+          <svg viewBox="0 0 24 24" class="w-6 h-6">
+            <path d="M4 4l16 16M4 8l12 12M4 12l8 8" stroke="#4fc3f7" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+          </svg>
+        </div>
+
+        <h3 class="font-mono font-semibold text-lg mt-5">Deploy to Railway</h3>
+        <p class="text-brand-muted text-sm mt-3 leading-relaxed">
+          One click. Railway provisions a server with persistent storage. JWT secret auto-generates on first boot.
+        </p>
+
+        <a
+          href="https://railway.com/template/contextmate"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-block mt-6"
+        >
+          <img
+            src="https://railway.com/button.svg"
+            alt="Deploy on Railway"
+            width="180"
+            height="40"
+            loading="lazy"
+          />
+        </a>
+      </div>
+
+      <!-- Docker Card -->
+      <div class="selfhost-card selfhost-card-green rounded-2xl p-8">
+        <div class="w-12 h-12 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+          <svg viewBox="0 0 24 24" class="w-6 h-6">
+            <rect x="3" y="11" width="4" height="4" rx="0.5" fill="rgba(102,187,106,0.12)" stroke="#66bb6a" stroke-width="1.2"/>
+            <rect x="8" y="11" width="4" height="4" rx="0.5" fill="rgba(102,187,106,0.12)" stroke="#66bb6a" stroke-width="1.2"/>
+            <rect x="13" y="11" width="4" height="4" rx="0.5" fill="rgba(102,187,106,0.12)" stroke="#66bb6a" stroke-width="1.2"/>
+            <rect x="8" y="6" width="4" height="4" rx="0.5" fill="rgba(102,187,106,0.12)" stroke="#66bb6a" stroke-width="1.2"/>
+            <rect x="13" y="6" width="4" height="4" rx="0.5" fill="rgba(102,187,106,0.12)" stroke="#66bb6a" stroke-width="1.2"/>
+            <path d="M1 13c1-2 3-3 5-3h14c2 0 3 1 3 3" fill="none" stroke="#66bb6a" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+        </div>
+
+        <h3 class="font-mono font-semibold text-lg mt-5">Docker Compose</h3>
+        <p class="text-brand-muted text-sm mt-3 leading-relaxed">
+          Run anywhere Docker runs. Data persists in a volume. Configure with a simple <code class="text-brand-accent">.env</code> file.
+        </p>
+
+        <div class="selfhost-code mt-6 rounded-lg p-4 font-mono text-sm overflow-x-auto">
+          <span class="text-brand-muted">$</span> <span class="text-brand-text">git clone https://github.com/contextmate/contextmate.git</span><br/>
+          <span class="text-brand-muted">$</span> <span class="text-brand-text">cd contextmate && docker compose up -d</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Connect CLI -->
+    <div class="mt-12 selfhost-card selfhost-card-dim rounded-2xl p-8 max-w-2xl mx-auto text-center">
+      <h3 class="font-mono font-semibold text-lg">Point your CLI at your server</h3>
+      <p class="text-brand-muted text-sm mt-3 leading-relaxed">
+        During <code class="text-brand-accent">contextmate setup</code>, enter your server URL when prompted. That's it.
+      </p>
+      <div class="selfhost-code mt-5 rounded-lg p-4 font-mono text-sm text-left inline-block">
+        <span class="text-brand-muted">Server URL (Enter for hosted service):</span> <span class="text-brand-accent">https://your-server.example.com</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .selfhost-card {
+    transition: transform 0.2s ease, border-color 0.3s ease;
+  }
+
+  .selfhost-card:hover {
+    transform: translateY(-2px);
+  }
+
+  .selfhost-card-accent {
+    background: linear-gradient(135deg, #1a2a3c 0%, #162544 50%, #0f1729 100%);
+    border: 1px solid rgba(79, 195, 247, 0.15);
+  }
+
+  .selfhost-card-accent:hover {
+    border-color: rgba(79, 195, 247, 0.35);
+  }
+
+  .selfhost-card-green {
+    background: linear-gradient(135deg, #1a2a1a 0%, #15201a 50%, #0f1729 100%);
+    border: 1px solid rgba(102, 187, 106, 0.15);
+  }
+
+  .selfhost-card-green:hover {
+    border-color: rgba(102, 187, 106, 0.35);
+  }
+
+  .selfhost-card-dim {
+    background: linear-gradient(135deg, #1a1a2e 0%, #141428 50%, #0f1729 100%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .selfhost-card-dim:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+
+  .selfhost-code {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+</style>
