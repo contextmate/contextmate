@@ -130,6 +130,16 @@ export class SyncEngine {
   async handleLocalChange(relativePath: string): Promise<void> {
     if (!this.stateDb) return;
 
+    // Skip files that were deleted remotely — adapter may have recreated them
+    if (this.stateDb.isDeletion(relativePath)) {
+      try {
+        await unlink(join(this.config.vault.path, relativePath));
+      } catch {
+        // Already gone
+      }
+      return;
+    }
+
     try {
       const absolutePath = join(this.config.vault.path, relativePath);
       const content = await readFile(absolutePath);
