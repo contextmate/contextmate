@@ -1,4 +1,4 @@
-import { readFile, readdir, access, stat, mkdir, writeFile, copyFile } from 'node:fs/promises';
+import { readFile, readdir, access, stat, mkdir, writeFile, copyFile, unlink } from 'node:fs/promises';
 import { join, relative, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import picomatch from 'picomatch';
@@ -189,9 +189,13 @@ export class OpenClawAdapter extends BaseAdapter {
     // Workspace files are real copies — nothing to restore.
   }
 
-  async syncBack(workspacePath: string): Promise<{ synced: string[] }> {
+  async syncBack(workspacePath: string): Promise<{ synced: string[]; deleted: string[] }> {
     const synced: string[] = [];
+    const deleted: string[] = [];
     const filesToCheck = await this.discoverFiles(workspacePath);
+    const workspaceRelPaths = new Set(
+      filesToCheck.map((f) => relative(workspacePath, f)),
+    );
 
     for (const filePath of filesToCheck) {
       const relativeSrc = relative(workspacePath, filePath);
@@ -219,7 +223,21 @@ export class OpenClawAdapter extends BaseAdapter {
       }
     }
 
-    return { synced };
+    // Detect workspace deletions: vault files with no workspace counterpart
+    const vaultFiles = await this.discoverVaultFiles();
+    for (const vaultRelative of vaultFiles) {
+      const relativeSrc = vaultRelative.slice(this.vaultPrefix.length + 1);
+      if (!workspaceRelPaths.has(relativeSrc)) {
+        try {
+          await unlink(join(this.vaultPath, vaultRelative));
+          deleted.push(vaultRelative);
+        } catch {
+          // Already gone
+        }
+      }
+    }
+
+    return { synced, deleted };
   }
 
   async syncFromVault(workspacePath: string): Promise<{ synced: string[] }> {

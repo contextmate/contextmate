@@ -493,6 +493,14 @@ export class SyncEngine {
   private async handleLocalDelete(relativePath: string): Promise<void> {
     if (!this.stateDb) return;
     this.stateDb.removeFile(relativePath);
+
+    // Propagate deletion to server
+    try {
+      await this.client.deleteFile(relativePath);
+    } catch {
+      // Server may be unreachable or file already gone
+    }
+
     this.stateDb.addSyncLog('delete', relativePath, 'Local file removed');
   }
 
