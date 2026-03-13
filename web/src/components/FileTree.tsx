@@ -318,13 +318,24 @@ export function FileTree({ onSelect, selectedFile, onFileCountChange, onFilesLoa
             <option key={agent} value={agent}>{agent}</option>
           ))}
         </select>
-        <input
-          type="text"
-          className="file-tree-search"
-          placeholder="Filter files..."
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        />
+        <div className="file-tree-search-wrap">
+          <input
+            type="text"
+            className="file-tree-search"
+            placeholder="Filter files..."
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          />
+          {filter && (
+            <button
+              className="file-tree-search-clear"
+              onClick={() => setFilter('')}
+              aria-label="Clear search"
+            >
+              ×
+            </button>
+          )}
+        </div>
       </div>
       <div className="file-tree-list">
         {loading && <div className="file-tree-status">Loading files...</div>}

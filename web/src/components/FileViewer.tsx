@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, type MouseEvent } from 'react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { decryptData, encryptData, bytesToHex, deriveKeyForPath } from '../crypto/browser-crypto.ts';
 
@@ -162,6 +162,22 @@ export function FileViewer({ filePath, onDirtyChange }: FileViewerProps) {
       {error && <div className="file-viewer-error">{error}</div>}
       <div className="file-viewer-header">
         <span className="file-viewer-path">{filePath}</span>
+        <button
+          className="file-viewer-copy"
+          title="Copy file contents"
+          onClick={async (e: MouseEvent) => {
+            const btn = e.currentTarget;
+            try {
+              await navigator.clipboard.writeText(content);
+              btn.textContent = '✓';
+              setTimeout(() => { btn.textContent = '⧉'; }, 1500);
+            } catch {
+              // Fallback
+            }
+          }}
+        >
+          ⧉
+        </button>
         <span className="file-viewer-meta">v{version}</span>
         <div className="file-viewer-actions">
           {editing ? (

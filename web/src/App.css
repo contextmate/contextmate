@@ -242,12 +242,16 @@
   border-bottom: 1px solid #2a2a4a;
 }
 
+.file-tree-search-wrap {
+  position: relative;
+}
+
 .file-tree-search {
   width: 100%;
   background: #0f1729;
   border: 1px solid #2a2a4a;
   border-radius: 4px;
-  padding: 0.375rem 0.5rem;
+  padding: 0.375rem 1.75rem 0.375rem 0.5rem;
   color: #e0e0e0;
   font-size: 0.8125rem;
   outline: none;
@@ -255,6 +259,24 @@
 
 .file-tree-search:focus {
   border-color: #4fc3f7;
+}
+
+.file-tree-search-clear {
+  position: absolute;
+  right: 0.25rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0 0.25rem;
+  line-height: 1;
+}
+
+.file-tree-search-clear:hover {
+  color: #e0e0e0;
 }
 
 .file-tree-list {
@@ -380,6 +402,21 @@
   font-size: 0.8125rem;
   color: #4fc3f7;
   font-weight: 500;
+}
+
+.file-viewer-copy {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  padding: 0 0.25rem;
+  margin-left: 0.375rem;
+  line-height: 1;
+}
+
+.file-viewer-copy:hover {
+  color: #4fc3f7;
 }
 
 .file-viewer-meta {
