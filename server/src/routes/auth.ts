@@ -70,10 +70,16 @@ authRoutes.post('/register', async (c) => {
   } catch {
     return c.json({ error: 'Invalid JSON body' }, 400);
   }
-  const { authKeyHash, salt, encryptedMasterKey } = body;
+  const { authKeyHash, salt, encryptedMasterKey, inviteCode } = body;
 
   if (!authKeyHash || !salt || !encryptedMasterKey) {
     return c.json({ error: 'authKeyHash, salt, and encryptedMasterKey are required' }, 400);
+  }
+
+  // Check invite code if server requires one
+  const requiredCode = process.env.INVITE_CODE;
+  if (requiredCode && inviteCode !== requiredCode) {
+    return c.json({ error: 'Valid invite code required to register' }, 403);
   }
 
   const db = getDb();

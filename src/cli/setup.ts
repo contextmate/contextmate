@@ -415,15 +415,21 @@ export const setupCommand = new Command('setup')
 
           const authHash = createAuthHash(authKey);
 
+          // Ask for invite code (optional — server may or may not require one)
+          const inviteCode = (await ask(chalk.bold('Invite code (Enter to skip): '))).trim();
+
           console.log(chalk.dim('Registering with server...'));
+          const regBody: Record<string, string> = {
+            authKeyHash: authHash,
+            salt: bytesToHex(salt),
+            encryptedMasterKey: bytesToHex(encryptedMasterKey),
+          };
+          if (inviteCode) regBody.inviteCode = inviteCode;
+
           const regRes = await fetch(`${config.server.url}/api/auth/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              authKeyHash: authHash,
-              salt: bytesToHex(salt),
-              encryptedMasterKey: bytesToHex(encryptedMasterKey),
-            }),
+            body: JSON.stringify(regBody),
           });
 
           if (regRes.ok) {
@@ -438,6 +444,9 @@ export const setupCommand = new Command('setup')
             );
           } else if (regRes.status === 409) {
             console.error(chalk.red('Error: An account with this passphrase already exists.'));
+            process.exit(1);
+          } else if (regRes.status === 403) {
+            console.error(chalk.red('Error: Valid invite code required to register on this server.'));
             process.exit(1);
           } else {
             console.error(chalk.red(`Error: Server returned ${regRes.status}.`));

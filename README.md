@@ -176,6 +176,20 @@ Then restart the daemon: `contextmate daemon stop && contextmate daemon start`
 |----------|---------|-------------|
 | `JWT_SECRET` | auto-generated | JWT signing secret. Set explicitly for multi-instance deployments. |
 | `PORT` | `3000` | Server port. |
+| `INVITE_CODE` | _(none)_ | If set, new users must provide this code to register. Leave unset for open registration. |
+
+### Invite Codes
+
+By default, anyone who knows your server URL can create an account. To restrict registration, set an `INVITE_CODE` on the server:
+
+```bash
+# Docker Compose: add to .env
+INVITE_CODE=my-secret-code
+
+# Railway: set in service variables
+```
+
+When a user runs `contextmate setup`, they'll be prompted for the invite code. Existing accounts are not affected — the code is only required for new registrations.
 
 ## Architecture
 
