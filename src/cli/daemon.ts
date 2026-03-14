@@ -260,6 +260,13 @@ const startCommand = new Command('start')
                 if (result.synced.length > 0) {
                   console.log(chalk.dim(`  OpenClaw [${agentId}]: ${result.synced.length} file${result.synced.length === 1 ? '' : 's'} synced back`));
                 }
+                // Propagate workspace deletions to server
+                for (const del of result.deleted) {
+                  try { await engine.deleteFile(del); } catch { /* Non-critical */ }
+                }
+                if (result.deleted.length > 0) {
+                  console.log(chalk.dim(`  OpenClaw [${agentId}]: ${result.deleted.length} file${result.deleted.length === 1 ? '' : 's'} deleted`));
+                }
               } catch {
                 // Non-critical
               }
@@ -270,7 +277,12 @@ const startCommand = new Command('start')
 
           const interval = setInterval(async () => {
             try {
-              if (openclawCanPush) await openclawAdapter.syncBack(workspacePath);
+              if (openclawCanPush) {
+                const result = await openclawAdapter.syncBack(workspacePath);
+                for (const del of result.deleted) {
+                  try { await engine.deleteFile(del); } catch { /* Non-critical */ }
+                }
+              }
               await openclawAdapter.syncFromVault(workspacePath);
             } catch {
               // Non-critical

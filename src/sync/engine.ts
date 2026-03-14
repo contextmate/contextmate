@@ -490,6 +490,11 @@ export class SyncEngine {
     return result;
   }
 
+  /** Public API for adapters to propagate workspace deletions to server. */
+  async deleteFile(relativePath: string): Promise<void> {
+    return this.handleLocalDelete(relativePath);
+  }
+
   private async handleLocalDelete(relativePath: string): Promise<void> {
     if (!this.stateDb) return;
 

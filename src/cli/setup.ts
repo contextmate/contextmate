@@ -776,7 +776,10 @@ export const setupCommand = new Command('setup')
 
           const handleChange = async () => {
             try {
-              await openclawAdapter.syncBack(workspacePath);
+              const result = await openclawAdapter.syncBack(workspacePath);
+              for (const del of result.deleted) {
+                try { await engine.deleteFile(del); } catch { /* Non-critical */ }
+              }
             } catch {
               // Non-critical
             }
@@ -786,7 +789,10 @@ export const setupCommand = new Command('setup')
 
           const interval = setInterval(async () => {
             try {
-              await openclawAdapter.syncBack(workspacePath);
+              const result = await openclawAdapter.syncBack(workspacePath);
+              for (const del of result.deleted) {
+                try { await engine.deleteFile(del); } catch { /* Non-critical */ }
+              }
               await openclawAdapter.syncFromVault(workspacePath);
             } catch {
               // Non-critical
