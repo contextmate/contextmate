@@ -131,6 +131,7 @@ export class ApiClient {
   async listFiles(): Promise<FileMetadata[]> {
     const res = await fetch(`${this.baseUrl}/api/files`, {
       headers: this.headers(),
+      cache: 'no-store',
     });
     if (!res.ok) {
       this.checkUnauthorized(res.status);
@@ -152,6 +153,7 @@ export class ApiClient {
     const url = `${this.baseUrl}/api/audit-log${qs ? `?${qs}` : ''}`;
     const res = await fetch(url, {
       headers: this.headers(),
+      cache: 'no-store',
     });
     if (!res.ok) {
       this.checkUnauthorized(res.status);
@@ -165,6 +167,7 @@ export class ApiClient {
     const encoded = encodeURIComponent(path);
     const res = await fetch(`${this.baseUrl}/api/files/${encoded}`, {
       headers: this.headers(),
+      cache: 'no-store',
     });
     if (!res.ok) {
       this.checkUnauthorized(res.status);
