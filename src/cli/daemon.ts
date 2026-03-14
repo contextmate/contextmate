@@ -210,9 +210,8 @@ const startCommand = new Command('start')
         console.log(chalk.dim(`  Sync direction: openclaw=${dirs.openclaw}, claude=${dirs.claude}`));
       }
 
-      // Write PID file and version file
+      // Write PID file (version file is written only by `daemon install` to trigger restarts)
       await writeFile(pidFile, String(process.pid), 'utf-8');
-      await writeVersionFile(config);
 
       // Start sync engine (foreground)
       console.log(chalk.green(`Daemon started (PID: ${process.pid})`));

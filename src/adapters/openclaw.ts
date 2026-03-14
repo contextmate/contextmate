@@ -210,6 +210,15 @@ export class OpenClawAdapter extends BaseAdapter {
           if (Buffer.compare(workspaceContent, vaultContent) === 0) {
             continue;
           }
+          // Last-writer-wins: skip if vault file is newer than workspace file
+          // (e.g. a cloud update just arrived via the web dashboard)
+          const [wsStat, vaultStat] = await Promise.all([
+            stat(filePath),
+            stat(vaultFilePath),
+          ]);
+          if (vaultStat.mtimeMs > wsStat.mtimeMs) {
+            continue;
+          }
         } catch {
           // Vault file doesn't exist yet
         }
@@ -469,6 +478,11 @@ export class OpenClawGlobalSync {
       try {
         const vaultContent = await readFile(vaultFilePath);
         if (Buffer.compare(sourceContent, vaultContent) === 0) {
+          return false;
+        }
+        // Last-writer-wins: skip if vault is newer (cloud update just arrived)
+        const [srcStat, vaultStat] = await Promise.all([stat(sourcePath), stat(vaultFilePath)]);
+        if (vaultStat.mtimeMs > srcStat.mtimeMs) {
           return false;
         }
       } catch {

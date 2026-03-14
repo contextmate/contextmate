@@ -232,6 +232,11 @@ export class ClaudeCodeAdapter extends BaseAdapter {
           if (Buffer.compare(localContent, vaultContent) === 0) {
             continue;
           }
+          // Last-writer-wins: skip if vault is newer (cloud update just arrived)
+          const [wsStat, vaultStat] = await Promise.all([stat(skillFile), stat(vaultSkillFile)]);
+          if (vaultStat.mtimeMs > wsStat.mtimeMs) {
+            continue;
+          }
         } catch {
           // Vault file doesn't exist
         }
@@ -271,6 +276,11 @@ export class ClaudeCodeAdapter extends BaseAdapter {
           if (Buffer.compare(localContent, vaultContent) === 0) {
             continue;
           }
+          // Last-writer-wins: skip if vault is newer (cloud update just arrived)
+          const [wsStat, vaultStat] = await Promise.all([stat(filePath), stat(vaultFilePath)]);
+          if (vaultStat.mtimeMs > wsStat.mtimeMs) {
+            continue;
+          }
         } catch {
           // Vault file doesn't exist
         }
@@ -296,6 +306,11 @@ export class ClaudeCodeAdapter extends BaseAdapter {
       try {
         const vaultContent = await readFile(vaultFilePath);
         if (Buffer.compare(localContent, vaultContent) === 0) {
+          return;
+        }
+        // Last-writer-wins: skip if vault is newer (cloud update just arrived)
+        const [wsStat, vaultStat] = await Promise.all([stat(filePath), stat(vaultFilePath)]);
+        if (vaultStat.mtimeMs > wsStat.mtimeMs) {
           return;
         }
       } catch {
