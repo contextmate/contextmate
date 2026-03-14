@@ -28,6 +28,11 @@ Thumbs.db
 .env.local
 .env.*.local
 
+# Secrets / certificates
+*.key
+*.pem
+*.cert
+
 # Test coverage
 coverage/
 
