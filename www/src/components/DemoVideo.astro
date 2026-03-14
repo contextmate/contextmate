@@ -5,14 +5,19 @@
 <section class="py-16 px-6">
   <div class="max-w-3xl mx-auto">
     <h2 class="font-mono text-2xl md:text-3xl font-bold text-center mb-8">Watch the 2-min explainer</h2>
-    <div class="video-wrapper rounded-2xl overflow-hidden border border-brand-border">
-      <iframe
-        src="https://www.youtube.com/embed/l_T0qM3cxi8?rel=0&modestbranding=1"
-        title="ContextMate: Dropbox for OpenClaw"
-        frameborder="0"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        allowfullscreen
-      ></iframe>
+    <div class="video-wrapper rounded-2xl overflow-hidden border border-brand-border" id="video-facade">
+      <img
+        src="https://i.ytimg.com/vi/l_T0qM3cxi8/maxresdefault.jpg"
+        alt="ContextMate demo video"
+        loading="lazy"
+        class="video-thumbnail"
+      />
+      <button class="play-button" aria-label="Play video">
+        <svg viewBox="0 0 68 48" width="68" height="48">
+          <path d="M66.52 7.74c-.78-2.93-2.49-5.41-5.42-6.19C55.79.13 34 0 34 0S12.21.13 6.9 1.55C3.97 2.33 2.27 4.81 1.48 7.74.06 13.05 0 24 0 24s.06 10.95 1.48 16.26c.78 2.93 2.49 5.41 5.42 6.19C12.21 47.87 34 48 34 48s21.79-.13 27.1-1.55c2.93-.78 4.64-3.26 5.42-6.19C67.94 34.95 68 24 68 24s-.06-10.95-1.48-16.26z" fill="#FF0000"/>
+          <path d="M45 24L27 14v20" fill="#fff"/>
+        </svg>
+      </button>
     </div>
   </div>
 </section>
@@ -23,6 +28,33 @@
     padding-bottom: 56.25%; /* 16:9 */
     height: 0;
     background: #0f1729;
+    cursor: pointer;
+  }
+
+  .video-thumbnail {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .play-button {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    opacity: 0.85;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+
+  .video-wrapper:hover .play-button {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.1);
   }
 
   .video-wrapper iframe {
@@ -33,3 +65,19 @@
     height: 100%;
   }
 </style>
+
+<script>
+  const facade = document.getElementById('video-facade');
+  if (facade) {
+    facade.addEventListener('click', () => {
+      const iframe = document.createElement('iframe');
+      iframe.src = 'https://www.youtube.com/embed/l_T0qM3cxi8?rel=0&modestbranding=1&autoplay=1';
+      iframe.title = 'ContextMate: Dropbox for OpenClaw';
+      iframe.frameBorder = '0';
+      iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+      iframe.allowFullscreen = true;
+      facade.innerHTML = '';
+      facade.appendChild(iframe);
+    }, { once: true });
+  }
+</script>
