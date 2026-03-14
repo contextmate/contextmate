@@ -1,11 +1,47 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import {
   deriveKeyFromPassphrase,
   deriveSubKey,
   hashForAuth,
   hexToBytes,
+  bytesToHex,
 } from '../crypto/browser-crypto.ts';
 import { ApiClient } from '../api/client.ts';
+
+const SESSION_KEY = 'contextmate-session';
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+interface StoredSession {
+  token: string;
+  userId: string;
+  serverUrl: string;
+  vaultKeyRaw: string; // hex
+  authKeyHex: string;
+  expiresAt: number;
+}
+
+function saveSession(s: StoredSession): void {
+  try { localStorage.setItem(SESSION_KEY, JSON.stringify(s)); } catch { /* quota */ }
+}
+
+function loadSession(): StoredSession | null {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const s: StoredSession = JSON.parse(raw);
+    if (Date.now() > s.expiresAt) {
+      localStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+    return s;
+  } catch {
+    return null;
+  }
+}
+
+function clearSession(): void {
+  localStorage.removeItem(SESSION_KEY);
+}
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -26,6 +62,16 @@ interface AuthContextValue extends AuthState {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+async function importVaultKey(rawBytes: Uint8Array): Promise<CryptoKey> {
+  return crypto.subtle.importKey(
+    'raw',
+    rawBytes.buffer as ArrayBuffer,
+    { name: 'AES-GCM' },
+    false,
+    ['encrypt', 'decrypt'],
+  );
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
     isAuthenticated: false,
@@ -39,8 +85,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sessionExpired: false,
   });
 
+  // Restore session from localStorage on mount
+  useEffect(() => {
+    const stored = loadSession();
+    if (!stored) return;
+
+    (async () => {
+      try {
+        const vaultKeyRaw = hexToBytes(stored.vaultKeyRaw);
+        const vaultKey = await importVaultKey(vaultKeyRaw);
+
+        const client = new ApiClient(stored.serverUrl);
+        client.setToken(stored.token);
+        client.onUnauthorized = () => {
+          clearSession();
+          setState((prev) => ({
+            ...prev,
+            isAuthenticated: false,
+            vaultKey: null,
+            vaultKeyRaw: null,
+            authKeyHex: null,
+            token: null,
+            apiClient: null,
+            sessionExpired: true,
+          }));
+        };
+
+        setState({
+          isAuthenticated: true,
+          vaultKey,
+          vaultKeyRaw,
+          authKeyHex: stored.authKeyHex,
+          token: stored.token,
+          userId: stored.userId,
+          apiClient: client,
+          serverUrl: stored.serverUrl,
+          sessionExpired: false,
+        });
+      } catch {
+        clearSession();
+      }
+    })();
+  }, []);
+
   const logout = useCallback(() => {
-    setState((prev) => ({
+    clearSession();
+    setState({
       isAuthenticated: false,
       vaultKey: null,
       vaultKeyRaw: null,
@@ -49,8 +139,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       userId: null,
       apiClient: null,
       serverUrl: '',
-      sessionExpired: prev.sessionExpired,
-    }));
+      sessionExpired: false,
+    });
   }, []);
 
   const login = useCallback(async (passphrase: string, serverUrl: string, userId: string) => {
@@ -58,6 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Wire up 401 detection to trigger session expiry
     client.onUnauthorized = () => {
+      clearSession();
       setState((prev) => ({
         ...prev,
         isAuthenticated: false,
@@ -93,6 +184,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Authenticate with server
     const { userId: confirmedUserId, token } = await client.login(authKeyHash);
     client.setToken(token);
+
+    // Persist session to localStorage
+    saveSession({
+      token,
+      userId: confirmedUserId,
+      serverUrl,
+      vaultKeyRaw: bytesToHex(vaultKeyRaw),
+      authKeyHex: authKeyHash,
+      expiresAt: Date.now() + SESSION_TTL_MS,
+    });
 
     setState({
       isAuthenticated: true,

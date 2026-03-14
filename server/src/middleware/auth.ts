@@ -32,7 +32,7 @@ export interface AuthContext {
 }
 
 export function signToken(userId: string): string {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '24h' });
+  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
 }
 
 export function verifyToken(token: string): { userId: string } {
