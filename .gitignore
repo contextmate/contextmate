@@ -56,3 +56,4 @@ docs/web-dashboard-audit.md
 
 # Screenshots
 *.png
+!www/public/og-image.png
