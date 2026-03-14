@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://contextmate.dev/sitemap-index.xml
