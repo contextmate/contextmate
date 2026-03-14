@@ -39,10 +39,11 @@ const posthogKey = import.meta.env.PUBLIC_POSTHOG_KEY || '';
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={new URL('/og-image.png', Astro.site)} />
 
-    <!-- Fonts (non-blocking) -->
+    <!-- Fonts (non-blocking, preconnect to font CDNs to reduce chain) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preconnect" href="https://api.fontshare.com" />
+    <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin />
     <link
       rel="preload"
       as="style"
