@@ -16,7 +16,7 @@ const DEFAULT_EXCLUDE = [
 const DEFAULT_MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 // Directories under ~/.openclaw/ that should never be synced
-const OPENCLAW_SKIP_DIRS = new Set([
+export const OPENCLAW_SKIP_DIRS = new Set([
   'credentials',
   'browser',
   'media',

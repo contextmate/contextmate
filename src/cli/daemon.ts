@@ -9,7 +9,7 @@ import { hexToBytes } from '@noble/hashes/utils';
 import { loadConfig, getConfigPath } from '../config.js';
 import { getPidFilePath, getBackupsPath } from '../utils/paths.js';
 import { deriveMasterKey, deriveVaultKey, decryptString } from '../crypto/index.js';
-import { OpenClawAdapter, OpenClawGlobalSync, discoverWorkspaces, getOpenClawRoot } from '../adapters/openclaw.js';
+import { OpenClawAdapter, OpenClawGlobalSync, OPENCLAW_SKIP_DIRS, discoverWorkspaces, getOpenClawRoot } from '../adapters/openclaw.js';
 import { ClaudeCodeAdapter } from '../adapters/claude.js';
 import { FileWatcher } from '../sync/watcher.js';
 import { retrievePassphrase, isKeychainAvailable, storePassphrase, deletePassphrase } from '../utils/keychain.js';
@@ -303,7 +303,9 @@ const startCommand = new Command('start')
         // Watch ~/.openclaw/ for config/session changes (only if bidirectional)
         let openclawRootWatcher: FileWatcher | null = null;
         if (openclawCanPush) {
-          openclawRootWatcher = new FileWatcher(getOpenClawRoot(), config.sync.debounceMs);
+          openclawRootWatcher = new FileWatcher(getOpenClawRoot(), config.sync.debounceMs, {
+            ignoredDirs: [...OPENCLAW_SKIP_DIRS],
+          });
           openclawRootWatcher.start();
 
           const handleGlobalChange = async () => {

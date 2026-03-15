@@ -9,6 +9,8 @@ interface FileEvent {
 export interface WatcherOptions {
   usePolling?: boolean;
   followSymlinks?: boolean;
+  /** Directory names (relative to watch root) to completely ignore */
+  ignoredDirs?: string[];
 }
 
 export class FileWatcher extends EventEmitter {
@@ -28,17 +30,20 @@ export class FileWatcher extends EventEmitter {
 
   start(): void {
     const watchBase = this.watchPath;
+    const skipDirs = new Set(this.options.ignoredDirs ?? []);
     this.watcher = chokidar.watch(this.watchPath, {
       ignoreInitial: true,
       persistent: true,
       usePolling: this.options.usePolling,
       followSymlinks: this.options.followSymlinks ?? false,
       ignored: [
-        // Only ignore dot-files/dirs WITHIN the watched directory, not parent segments
+        // Only ignore dot-files/dirs WITHIN the watched directory, not parent segments.
+        // Also skip explicitly ignored directory names.
         (filePath: string) => {
           if (filePath === watchBase) return false;
           const rel = relative(watchBase, filePath);
-          return rel.split('/').some((seg) => seg.startsWith('.'));
+          const segments = rel.split('/');
+          return segments.some((seg) => seg.startsWith('.') || skipDirs.has(seg));
         },
         /\.conflict\.md$/,
         /node_modules/,

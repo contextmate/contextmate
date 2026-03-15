@@ -803,11 +803,13 @@ export const setupCommand = new Command('setup')
         }
 
         // Global sync: config, sessions, cron
-        const { OpenClawGlobalSync, getOpenClawRoot } = await import('../adapters/openclaw.js');
+        const { OpenClawGlobalSync, OPENCLAW_SKIP_DIRS, getOpenClawRoot } = await import('../adapters/openclaw.js');
         const globalSync = new OpenClawGlobalSync(config!.vault.path);
         await globalSync.syncBack();
 
-        const globalWatcher = new FileWatcher(getOpenClawRoot(), config!.sync.debounceMs);
+        const globalWatcher = new FileWatcher(getOpenClawRoot(), config!.sync.debounceMs, {
+          ignoredDirs: [...OPENCLAW_SKIP_DIRS],
+        });
         globalWatcher.start();
 
         const handleGlobalChange = async () => {
