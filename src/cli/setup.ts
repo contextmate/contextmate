@@ -752,7 +752,7 @@ export const setupCommand = new Command('setup')
       console.log(chalk.dim('Press Ctrl+C to stop.'));
 
       const { SyncEngine } = await import('../sync/index.js');
-      const engine = new SyncEngine(config!, vaultKey!, token!);
+      const engine = new SyncEngine(config!, vaultKey!, token!, deviceId ?? undefined);
       await engine.start();
 
       // Start OpenClaw workspace watchers if enabled

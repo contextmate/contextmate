@@ -25,13 +25,16 @@ export class SyncWebSocket extends EventEmitter {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private shouldReconnect = false;
 
+  private readonly deviceId: string | undefined;
+
   private static readonly MAX_BACKOFF_MS = 30000;
   private static readonly HEARTBEAT_INTERVAL_MS = 30000;
 
-  constructor(url: string, token: string) {
+  constructor(url: string, token: string, deviceId?: string) {
     super();
     this.url = url;
     this.token = token;
+    this.deviceId = deviceId;
   }
 
   connect(): void {
@@ -65,6 +68,7 @@ export class SyncWebSocket extends EventEmitter {
 
     this.ws.on('open', () => {
       this.reconnectAttempts = 0;
+      this.registerDevice();
       this.startHeartbeat();
       this.emit('connected');
     });
@@ -121,10 +125,17 @@ export class SyncWebSocket extends EventEmitter {
     }, delay);
   }
 
+  private registerDevice(): void {
+    if (this.deviceId && this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'register-device', deviceId: this.deviceId }));
+    }
+  }
+
   private startHeartbeat(): void {
     this.heartbeatTimer = setInterval(() => {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
         this.ws.ping();
+        this.registerDevice();
       }
     }, SyncWebSocket.HEARTBEAT_INTERVAL_MS);
   }

@@ -220,7 +220,7 @@ const startCommand = new Command('start')
       }
 
       const { SyncEngine } = await import('../sync/index.js');
-      const engine = new SyncEngine(config, vaultKey, authToken);
+      const engine = new SyncEngine(config, vaultKey, authToken, deviceId);
       await engine.start();
 
       // Start OpenClaw workspace watchers if enabled

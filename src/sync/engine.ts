@@ -23,11 +23,13 @@ export class SyncEngine {
   private extraWatchers: FileWatcher[] = [];
 
   private readonly authToken: string;
+  private readonly deviceId: string | undefined;
 
-  constructor(config: ContextMateConfig, vaultKey: Uint8Array, authToken?: string) {
+  constructor(config: ContextMateConfig, vaultKey: Uint8Array, authToken?: string, deviceId?: string) {
     this.config = config;
     this.vaultKey = vaultKey;
     this.authToken = authToken || config.server.apiKey || '';
+    this.deviceId = deviceId;
     this.client = new SyncClient(config.server.url, this.authToken);
     this.client.enableTokenRefresh({
       authJsonPath: join(config.data.path, 'auth.json'),
@@ -57,7 +59,7 @@ export class SyncEngine {
 
     // Connect WebSocket
     const wsUrl = this.config.server.url.replace(/^http/, 'ws');
-    this.ws = new SyncWebSocket(wsUrl, this.authToken);
+    this.ws = new SyncWebSocket(wsUrl, this.authToken, this.deviceId);
     this.ws.connect();
 
     // Initial full sync
