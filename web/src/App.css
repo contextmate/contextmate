@@ -348,13 +348,15 @@
 .tree-delete {
   display: none;
   margin-left: auto;
-  padding: 0 0.3rem;
-  font-size: 0.6875rem;
+  padding: 0.125rem 0.25rem;
   color: #666;
   background: none;
   border: none;
   cursor: pointer;
   flex-shrink: 0;
+  line-height: 1;
+  align-items: center;
+  justify-content: center;
 }
 
 .tree-delete:hover {
@@ -362,7 +364,7 @@
 }
 
 .tree-item:hover .tree-delete {
-  display: inline;
+  display: inline-flex;
 }
 
 /* Main content area */
@@ -1032,8 +1034,21 @@
     display: none;
   }
 
-  .file-viewer-header {
-    flex-wrap: wrap;
+  .topbar {
+    padding: 0 0.5rem;
+  }
+
+  .topbar-title {
+    font-size: 0.8125rem;
+  }
+
+  .topbar-right {
+    gap: 0.5rem;
+  }
+
+  .topbar-logout {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
   }
 
   .main-nav {
@@ -1042,24 +1057,134 @@
   }
 
   .main-nav-tab {
-    font-size: 0.75rem;
+    font-size: 0.6875rem;
     padding: 0.25rem 0.375rem;
+  }
+
+  .file-viewer-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .file-viewer-path {
+    font-size: 0.75rem;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1 1 100%;
+  }
+
+  .file-viewer-actions {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .file-viewer-meta {
+    display: none;
+  }
+
+  .file-viewer-lang {
+    font-size: 0.625rem;
+  }
+
+  .file-viewer-body {
+    padding: 0.75rem;
+  }
+
+  .file-viewer-content {
+    font-size: 0.8125rem;
+  }
+
+  .file-viewer-code {
+    font-size: 0.75rem;
+    padding: 0.75rem;
+  }
+
+  .file-viewer-editor {
+    min-height: 250px;
+    font-size: 0.8125rem;
+    padding: 0.75rem;
   }
 
   .panel {
     padding: 1rem;
   }
 
+  .panel-header {
+    font-size: 1.1rem;
+  }
+
   .form-row {
     flex-wrap: wrap;
   }
 
+  /* Make data tables scroll horizontally on mobile */
   .data-table {
     font-size: 0.75rem;
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .data-table thead,
+  .data-table tbody,
+  .data-table tr {
+    display: table;
+    width: 100%;
+    table-layout: auto;
   }
 
   .data-table th,
   .data-table td {
     padding: 0.375rem 0.5rem;
+    white-space: nowrap;
+  }
+
+  /* Stack device adapter controls vertically */
+  .scan-path-item {
+    font-size: 0.75rem;
+  }
+
+  .scan-path-item code {
+    font-size: 0.6875rem;
+  }
+
+  .statusbar {
+    gap: 0.75rem;
+    padding: 0 0.5rem;
+    font-size: 0.625rem;
+    overflow-x: auto;
+  }
+
+  .statusbar-item {
+    white-space: nowrap;
+  }
+
+  /* Login card on mobile */
+  .login-card {
+    padding: 1.5rem;
+  }
+
+  .login-title {
+    font-size: 1.5rem;
+  }
+}
+
+/* Small phones */
+@media (max-width: 374px) {
+  .main-nav-tab {
+    font-size: 0.625rem;
+    padding: 0.2rem 0.25rem;
+  }
+
+  .topbar-title {
+    font-size: 0.75rem;
+  }
+
+  .sidebar-open .sidebar {
+    width: 100%;
   }
 }
