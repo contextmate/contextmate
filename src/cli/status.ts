@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { access } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { loadConfig, getConfigDir } from '../config.js';
 import { getSyncDbPath, getPidFilePath } from '../utils/paths.js';
 
@@ -19,6 +20,15 @@ function isPidRunning(pid: number): boolean {
     return true;
   } catch {
     return false;
+  }
+}
+
+function directionLabel(direction: string): string {
+  switch (direction) {
+    case 'send-receive': return chalk.green('enabled');
+    case 'receive-only': return chalk.yellow('receive-only');
+    case 'off': return chalk.dim('disabled');
+    default: return chalk.dim(direction);
   }
 }
 
@@ -46,9 +56,8 @@ export const statusCommand = new Command('status')
       console.log(`  Server:    ${config.server.url}`);
 
       // Show userId if registered
-      const authFile = (await import('node:path')).join(config.data.path, 'auth.json');
+      const authFile = join(config.data.path, 'auth.json');
       if (await fileExists(authFile)) {
-        const { readFile } = await import('node:fs/promises');
         try {
           const auth = JSON.parse(await readFile(authFile, 'utf-8'));
           if (auth.userId) {
@@ -89,28 +98,48 @@ export const statusCommand = new Command('status')
         console.log(chalk.dim('  Sync state: No sync database found'));
       }
 
+      // Load effective sync settings written by daemon
+      let effectiveSettings: { openclaw?: string; claude?: string } | null = null;
+      const effectivePath = join(config.data.path, 'effective-sync.json');
+      if (await fileExists(effectivePath)) {
+        try {
+          effectiveSettings = JSON.parse(await readFile(effectivePath, 'utf-8'));
+        } catch {
+          // ignore
+        }
+      }
+
       // Adapter status
       console.log('');
       console.log(chalk.bold('  Adapters'));
 
-      const openclawStatus = config.adapters.openclaw.enabled
-        ? chalk.green('enabled')
-        : chalk.dim('disabled');
-      const workspaceIds = Object.keys(config.adapters.openclaw.workspaces);
-      const workspaceLabel = workspaceIds.length > 0 ? workspaceIds.join(', ') : 'none';
-      console.log(`    OpenClaw:    ${openclawStatus}  (${workspaceLabel})`);
+      // OpenClaw
+      if (effectiveSettings?.openclaw) {
+        console.log(`    OpenClaw:    ${directionLabel(effectiveSettings.openclaw)}`);
+      } else {
+        const openclawStatus = config.adapters.openclaw.enabled
+          ? chalk.green('enabled')
+          : chalk.dim('disabled');
+        const workspaceIds = Object.keys(config.adapters.openclaw.workspaces);
+        const workspaceLabel = workspaceIds.length > 0 ? workspaceIds.join(', ') : 'none';
+        console.log(`    OpenClaw:    ${openclawStatus}  (${workspaceLabel})`);
+      }
 
-      const claudeStatus = config.adapters.claude.enabled
-        ? chalk.green('enabled')
-        : chalk.dim('disabled');
-      console.log(`    Claude Code: ${claudeStatus}  (${config.adapters.claude.skillsPath})`);
+      // Claude Code
+      if (effectiveSettings?.claude) {
+        console.log(`    Claude Code: ${directionLabel(effectiveSettings.claude)}  (${config.adapters.claude.skillsPath})`);
+      } else {
+        const claudeStatus = config.adapters.claude.enabled
+          ? chalk.green('enabled')
+          : chalk.dim('disabled');
+        console.log(`    Claude Code: ${claudeStatus}  (${config.adapters.claude.skillsPath})`);
+      }
 
       // Daemon status
       console.log('');
       console.log(chalk.bold('  Daemon'));
       const pidFile = getPidFilePath(config);
       if (await fileExists(pidFile)) {
-        const { readFile } = await import('node:fs/promises');
         const pidStr = await readFile(pidFile, 'utf-8');
         const pid = parseInt(pidStr.trim(), 10);
         if (isPidRunning(pid)) {

@@ -5,8 +5,11 @@ import { Writable } from 'node:stream';
 import { stdin, stdout } from 'node:process';
 import { readFile, writeFile, unlink, access } from 'node:fs/promises';
 import { join } from 'node:path';
+import { execFile as execFileCb } from 'node:child_process';
+import { promisify } from 'node:util';
 import { hexToBytes } from '@noble/hashes/utils';
 import { loadConfig, getConfigPath } from '../config.js';
+import type { ContextMateConfig } from '../config.js';
 import { getPidFilePath, getBackupsPath } from '../utils/paths.js';
 import { deriveMasterKey, deriveVaultKey, decryptString } from '../crypto/index.js';
 import { OpenClawAdapter, OpenClawGlobalSync, OPENCLAW_SKIP_DIRS, discoverWorkspaces, getOpenClawRoot } from '../adapters/openclaw.js';
@@ -14,6 +17,9 @@ import { ClaudeCodeAdapter } from '../adapters/claude.js';
 import { FileWatcher } from '../sync/watcher.js';
 import { retrievePassphrase, isKeychainAvailable, storePassphrase, deletePassphrase } from '../utils/keychain.js';
 import { installService, uninstallService, isServiceInstalled, writeVersionFile } from './service.js';
+import { VERSION } from '../utils/version.js';
+
+const execFile = promisify(execFileCb);
 
 type SyncDirection = 'send-receive' | 'receive-only' | 'off';
 
@@ -27,6 +33,50 @@ interface DeviceSyncSettings {
 const DEFAULT_SYNC: DeviceSyncSettings = {
   adapters: { claude: 'send-receive', openclaw: 'send-receive' },
 };
+
+async function writeEffectiveSettings(dataPath: string, settings: DeviceSyncSettings, localConfig: { openclaw: boolean; claude: boolean }): Promise<void> {
+  try {
+    const effective = {
+      openclaw: localConfig.openclaw ? settings.adapters.openclaw : 'off',
+      claude: localConfig.claude ? settings.adapters.claude : 'off',
+    };
+    await writeFile(join(dataPath, 'effective-sync.json'), JSON.stringify(effective), 'utf-8');
+  } catch {
+    // Non-critical
+  }
+}
+
+const AUTO_UPDATE_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
+
+async function checkForUpdate(config: ContextMateConfig): Promise<void> {
+  try {
+    const res = await fetch('https://registry.npmjs.org/contextmate/latest');
+    if (!res.ok) return;
+    const data = (await res.json()) as { version?: string };
+    const latest = data.version;
+    if (!latest || latest === VERSION) return;
+
+    // Simple semver comparison: split into parts and compare numerically
+    const cur = VERSION.split('.').map(Number);
+    const lat = latest.split('.').map(Number);
+    let isNewer = false;
+    for (let i = 0; i < 3; i++) {
+      if ((lat[i] ?? 0) > (cur[i] ?? 0)) { isNewer = true; break; }
+      if ((lat[i] ?? 0) < (cur[i] ?? 0)) break;
+    }
+    if (!isNewer) return;
+
+    console.log(chalk.dim(`  Auto-update: ${VERSION} → ${latest}`));
+    const npmPath = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+    await execFile(npmPath, ['install', '-g', `contextmate@${latest}`], { timeout: 120_000 });
+    console.log(chalk.dim(`  Auto-update: installed ${latest}, restarting...`));
+
+    // Write version file to trigger launchd/systemd restart
+    await writeVersionFile(config);
+  } catch {
+    // Non-critical — will retry next interval
+  }
+}
 
 async function loadDeviceSyncSettings(
   serverUrl: string,
@@ -204,11 +254,38 @@ const startCommand = new Command('start')
 
       // Load device sync settings (sync direction per adapter)
       let syncSettings = DEFAULT_SYNC;
+      const localAdapterConfig = {
+        openclaw: config.adapters.openclaw.enabled,
+        claude: config.adapters.claude.enabled,
+      };
       if (deviceId) {
         syncSettings = await loadDeviceSyncSettings(config.server.url, authToken, deviceId, vaultKey);
         const dirs = syncSettings.adapters;
         console.log(chalk.dim(`  Sync direction: openclaw=${dirs.openclaw}, claude=${dirs.claude}`));
       }
+      await writeEffectiveSettings(config.data.path, syncSettings, localAdapterConfig);
+
+      // Periodically refresh sync settings from server
+      const SETTINGS_REFRESH_MS = 30_000;
+      const settingsRefreshInterval = deviceId ? setInterval(async () => {
+        try {
+          const updated = await loadDeviceSyncSettings(config.server.url, authToken, deviceId, vaultKey);
+          const prev = syncSettings;
+          syncSettings = updated;
+          // Log and persist when settings change
+          if (prev.adapters.openclaw !== updated.adapters.openclaw || prev.adapters.claude !== updated.adapters.claude) {
+            if (prev.adapters.openclaw !== updated.adapters.openclaw) {
+              console.log(chalk.dim(`  Sync direction changed: openclaw=${updated.adapters.openclaw}`));
+            }
+            if (prev.adapters.claude !== updated.adapters.claude) {
+              console.log(chalk.dim(`  Sync direction changed: claude=${updated.adapters.claude}`));
+            }
+            await writeEffectiveSettings(config.data.path, syncSettings, localAdapterConfig);
+          }
+        } catch {
+          // Non-critical — keep using last known settings
+        }
+      }, SETTINGS_REFRESH_MS) : null;
 
       // Write PID file (version file is written only by `daemon install` to trigger restarts)
       await writeFile(pidFile, String(process.pid), 'utf-8');
@@ -227,7 +304,7 @@ const startCommand = new Command('start')
       const openclawDirection = syncSettings.adapters.openclaw;
       const openclawCanPush = openclawDirection === 'send-receive';
       const openclawInstances: Array<{ interval: ReturnType<typeof setInterval>; watcher: FileWatcher | null }> = [];
-      if (config.adapters.openclaw.enabled && openclawDirection !== 'off') {
+      if (config.adapters.openclaw.enabled) {
         const workspaces = Object.entries(config.adapters.openclaw.workspaces);
         for (const [agentId, ws] of workspaces) {
           const openclawAdapter = new OpenClawAdapter({
@@ -254,6 +331,7 @@ const startCommand = new Command('start')
             watcher.start();
 
             const handleChange = async () => {
+              if (syncSettings.adapters.openclaw !== 'send-receive') return;
               try {
                 const result = await openclawAdapter.syncBack(workspacePath);
                 if (result.synced.length > 0) {
@@ -275,8 +353,10 @@ const startCommand = new Command('start')
           }
 
           const interval = setInterval(async () => {
+            const curDirection = syncSettings.adapters.openclaw;
+            if (curDirection === 'off') return;
             try {
-              if (openclawCanPush) {
+              if (curDirection === 'send-receive') {
                 const result = await openclawAdapter.syncBack(workspacePath);
                 for (const del of result.deleted) {
                   try { await engine.deleteFile(del); } catch { /* Non-critical */ }
@@ -309,6 +389,7 @@ const startCommand = new Command('start')
           openclawRootWatcher.start();
 
           const handleGlobalChange = async () => {
+            if (syncSettings.adapters.openclaw !== 'send-receive') return;
             try {
               const result = await globalSync.syncBack();
               if (result.synced.length > 0) {
@@ -323,8 +404,10 @@ const startCommand = new Command('start')
         }
 
         const globalInterval = setInterval(async () => {
+          const curDirection = syncSettings.adapters.openclaw;
+          if (curDirection === 'off') return;
           try {
-            if (openclawCanPush) await globalSync.syncBack();
+            if (curDirection === 'send-receive') await globalSync.syncBack();
             await globalSync.syncFromVault();
           } catch {
             // Non-critical
@@ -344,7 +427,7 @@ const startCommand = new Command('start')
       const claudeCanPush = claudeDirection === 'send-receive';
       let claudeInterval: ReturnType<typeof setInterval> | null = null;
       let claudeWatcher: FileWatcher | null = null;
-      if (config.adapters.claude.enabled && config.adapters.claude.claudeDir && claudeDirection !== 'off') {
+      if (config.adapters.claude.enabled && config.adapters.claude.claudeDir) {
         const claudeAdapter = new ClaudeCodeAdapter({
           vaultPath: config.vault.path,
           backupsPath: getBackupsPath(),
@@ -369,6 +452,7 @@ const startCommand = new Command('start')
           claudeWatcher.start();
 
           const handleClaudeChange = async () => {
+            if (syncSettings.adapters.claude !== 'send-receive') return;
             try {
               const result = await claudeAdapter.syncBack(claudeDir);
               if (result.synced.length > 0) {
@@ -383,8 +467,10 @@ const startCommand = new Command('start')
         }
 
         claudeInterval = setInterval(async () => {
+          const curDirection = syncSettings.adapters.claude;
+          if (curDirection === 'off') return;
           try {
-            if (claudeCanPush) await claudeAdapter.syncBack(claudeDir);
+            if (curDirection === 'send-receive') await claudeAdapter.syncBack(claudeDir);
             await claudeAdapter.syncFromVault(claudeDir);
           } catch {
             // Non-critical
@@ -392,9 +478,16 @@ const startCommand = new Command('start')
         }, config.sync.pollIntervalMs);
       }
 
+      // Auto-update: check for new version every 30 minutes
+      const autoUpdateInterval = setInterval(() => void checkForUpdate(config), AUTO_UPDATE_INTERVAL_MS);
+      // Also check once shortly after startup (5 seconds)
+      setTimeout(() => void checkForUpdate(config), 5_000);
+
       // Handle graceful shutdown
       const shutdown = async () => {
         console.log(chalk.dim('\nStopping daemon...'));
+        clearInterval(autoUpdateInterval);
+        if (settingsRefreshInterval) clearInterval(settingsRefreshInterval);
         for (const oc of openclawInstances) {
           clearInterval(oc.interval);
           if (oc.watcher) await oc.watcher.stop();
@@ -404,6 +497,11 @@ const startCommand = new Command('start')
         await engine.stop();
         try {
           await unlink(pidFile);
+        } catch {
+          // Already removed
+        }
+        try {
+          await unlink(join(config.data.path, 'effective-sync.json'));
         } catch {
           // Already removed
         }
