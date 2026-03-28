@@ -57,9 +57,9 @@ export class SyncEngine {
       void this.handleLocalDelete(event.path);
     });
 
-    // Connect WebSocket
+    // Connect WebSocket (use live token getter so reconnects use refreshed tokens)
     const wsUrl = this.config.server.url.replace(/^http/, 'ws');
-    this.ws = new SyncWebSocket(wsUrl, this.authToken, this.deviceId);
+    this.ws = new SyncWebSocket(wsUrl, () => this.client.currentToken, this.deviceId);
     this.ws.connect();
 
     // Initial full sync

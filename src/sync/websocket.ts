@@ -19,7 +19,7 @@ interface WsMessage {
 export class SyncWebSocket extends EventEmitter {
   private ws: WebSocket | null = null;
   private readonly url: string;
-  private readonly token: string;
+  private readonly getToken: () => string;
   private reconnectAttempts = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
@@ -30,10 +30,10 @@ export class SyncWebSocket extends EventEmitter {
   private static readonly MAX_BACKOFF_MS = 30000;
   private static readonly HEARTBEAT_INTERVAL_MS = 30000;
 
-  constructor(url: string, token: string, deviceId?: string) {
+  constructor(url: string, tokenOrGetter: string | (() => string), deviceId?: string) {
     super();
     this.url = url;
-    this.token = token;
+    this.getToken = typeof tokenOrGetter === 'function' ? tokenOrGetter : () => tokenOrGetter;
     this.deviceId = deviceId;
   }
 
@@ -63,7 +63,7 @@ export class SyncWebSocket extends EventEmitter {
   }
 
   private doConnect(): void {
-    const wsUrl = `${this.url}/ws?token=${encodeURIComponent(this.token)}`;
+    const wsUrl = `${this.url}/ws?token=${encodeURIComponent(this.getToken())}`;
     this.ws = new WebSocket(wsUrl);
 
     this.ws.on('open', () => {

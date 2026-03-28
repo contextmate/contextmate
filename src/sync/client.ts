@@ -21,6 +21,10 @@ export class SyncClient {
     this.refreshConfig = config;
   }
 
+  get currentToken(): string {
+    return this.authToken;
+  }
+
   async uploadFile(
     path: string,
     encryptedData: Uint8Array,

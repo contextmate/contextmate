@@ -83,10 +83,22 @@ async function loadDeviceSyncSettings(
   token: string,
   deviceId: string,
   vaultKey: Uint8Array,
+  authJsonPath?: string,
 ): Promise<DeviceSyncSettings> {
   try {
+    // Re-read token from auth.json if available (SyncClient may have refreshed it)
+    let currentToken = token;
+    if (authJsonPath) {
+      try {
+        const auth = JSON.parse(await readFile(authJsonPath, 'utf-8'));
+        if (auth.token) currentToken = auth.token;
+      } catch {
+        // Fall back to original token
+      }
+    }
+
     const res = await fetch(`${serverUrl}/api/auth/devices/${encodeURIComponent(deviceId)}/settings`, {
-      headers: { 'Authorization': `Bearer ${token}` },
+      headers: { 'Authorization': `Bearer ${currentToken}` },
     });
     if (!res.ok) return DEFAULT_SYNC;
     const data = (await res.json()) as { encryptedSettings?: string };
@@ -258,8 +270,9 @@ const startCommand = new Command('start')
         openclaw: config.adapters.openclaw.enabled,
         claude: config.adapters.claude.enabled,
       };
+      const authJsonPath = join(config.data.path, 'auth.json');
       if (deviceId) {
-        syncSettings = await loadDeviceSyncSettings(config.server.url, authToken, deviceId, vaultKey);
+        syncSettings = await loadDeviceSyncSettings(config.server.url, authToken, deviceId, vaultKey, authJsonPath);
         const dirs = syncSettings.adapters;
         console.log(chalk.dim(`  Sync direction: openclaw=${dirs.openclaw}, claude=${dirs.claude}`));
       }
@@ -269,7 +282,7 @@ const startCommand = new Command('start')
       const SETTINGS_REFRESH_MS = 30_000;
       const settingsRefreshInterval = deviceId ? setInterval(async () => {
         try {
-          const updated = await loadDeviceSyncSettings(config.server.url, authToken, deviceId, vaultKey);
+          const updated = await loadDeviceSyncSettings(config.server.url, authToken, deviceId, vaultKey, authJsonPath);
           const prev = syncSettings;
           syncSettings = updated;
           // Log and persist when settings change
