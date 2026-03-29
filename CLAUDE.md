@@ -10,7 +10,7 @@ src/                  # CLI client (TypeScript, ESM)
   bin/                #   Entry point
   cli/                #   Commands (setup, init, status, adapter, daemon, mcp, files, log, reset)
   crypto/             #   Encryption (AES-256-GCM, Argon2id, HKDF, BLAKE3)
-  sync/               #   Sync engine (watcher, state, WebSocket)
+  sync/               #   Sync engine (engine, reconcile, mutex, state, watcher, WebSocket, client)
   adapters/           #   Agent adapters (OpenClaw, Claude Code)
   mcp/                #   Local MCP server (BM25 + TF-IDF hybrid search)
 server/               # Cloud API (Hono, SQLite, WebSocket)
@@ -22,13 +22,19 @@ tests/                # Test suites (Vitest)
 ### Key Files
 | File | Description |
 |------|-------------|
-| `src/adapters/base.ts` | Abstract base adapter — copy utilities, abstract interface |
-| `src/adapters/openclaw.ts` | OpenClaw adapter (primary) |
+| `src/sync/engine.ts` | Sync engine — mutex-protected, change-log-based sync |
+| `src/sync/reconcile.ts` | Pure reconciliation function — 12-case three-way merge logic |
+| `src/sync/mutex.ts` | Async operation queue — serializes all sync operations |
+| `src/sync/state.ts` | SQLite state DB — file tracking, cursors, deletion records |
+| `src/sync/client.ts` | HTTP client — upload, download, getChanges, token refresh |
+| `src/sync/websocket.ts` | WebSocket client — real-time events, reconnection |
+| `src/adapters/openclaw.ts` | OpenClaw adapter — workspace ↔ vault copy-sync |
 | `src/adapters/claude.ts` | Claude Code adapter (~600 lines, largest) |
 | `src/cli/daemon.ts` | Daemon — persistent sync service (launchd/systemd) |
 | `src/cli/setup.ts` | Interactive setup wizard (~890 lines) |
-| `src/sync/engine.ts` | Sync engine — file watching, WebSocket, cloud sync |
 | `src/config.ts` | Config loader (`~/.contextmate/config.toml`) |
+| `server/src/routes/files.ts` | Server file API — upload, download, delete, changes |
+| `server/src/db.ts` | Server DB schema — files, changes, users, devices |
 
 ### Vault Folder Structure
 ```
@@ -39,35 +45,59 @@ tests/                # Test suites (Vitest)
   custom/             # User-created custom files
 ```
 
-## Build Commands
+## Build & Test Commands
 
 ```bash
-npm run build          # CLI — tsc
+npm run build                # CLI — tsc
 cd server && npm run build   # Server — tsc
 cd web && npm run build      # Dashboard — tsc -b && vite build
 cd www && npm run build      # Marketing — astro build
-npm test               # Run all tests (vitest)
-npm run lint           # Type check (tsc --noEmit)
+npx vitest run               # Run all tests (189 tests)
+npx vitest run tests/sync/   # Run sync tests only
+npm run lint                 # Type check (tsc --noEmit)
 ```
 
 ## Key Architecture Decisions
 
-### Adapter Sync Model (Copy Mode — v0.4.0+)
+### Sync Architecture (v0.4.22+)
 
-Adapters use **bidirectional copy-sync** (Dropbox model). Workspace files are real copies, not symlinks.
+The sync system follows the Dropbox/Box/Google Drive pattern: **server-side change log with cursor-based sync**. Deletions are explicit server events, never inferred from file absence.
 
 ```
 Workspace (real files) ↔ Vault (local cache) ↔ Cloud (encrypted)
 ```
 
-- `import()` — workspace → vault (initial import)
-- `copyToWorkspace()` — vault → workspace (initial setup)
-- `syncBack()` — workspace → vault (user edits)
-- `syncFromVault()` — vault → workspace (cloud updates arriving)
-- `verifySync()` — compare content hashes
-- `disconnect()` — disables adapter, workspace files stay as-is
+#### Server-Side Change Log
+Every upload and delete is recorded in a `changes` table with an auto-incrementing sequence number. Clients call `GET /api/files/changes?since=N` to get explicit create/modify/delete events since their last cursor.
 
-The daemon runs both `syncBack()` and `syncFromVault()` on each adapter's periodic interval.
+#### Sync Engine (src/sync/engine.ts)
+- **Mutex**: All operations (`handleLocalChange`, `handleRemoteUpdate`, `syncAll`, etc.) go through `SyncMutex` — only one mutates state at a time.
+- **Watcher suppression**: Downloads add paths to a `suppressedPaths` set. Watcher events for suppressed paths are ignored, preventing echo loops.
+- **syncAll()**: Uses change log for incremental sync. Full reconciliation only on first sync (no cursor yet).
+- **Origin tracking**: Files tagged as `local` (pending upload), `remote` (just downloaded), or `synced` (confirmed on both sides). Prevents "pending upload" from being mistaken for "remotely deleted."
+
+#### Reconciliation (src/sync/reconcile.ts)
+Pure function `reconcileFile()` handles every state combination:
+- Disk + DB + Server all present → check for local/remote changes, conflicts
+- On disk but not server → upload (if origin=local) or delete_local (if origin=synced, meaning remote deleted it)
+- On server but not disk → download (new) or delete_remote (if origin=synced, meaning locally deleted)
+- Key invariant: **origin=local files are NEVER deleted** — they are pending uploads
+
+#### Adapter Sync Model (Copy Mode — v0.4.0+)
+Adapters use **bidirectional copy-sync**. Workspace files are real copies, not symlinks.
+
+- `syncBack()` — workspace → vault (user edits only, NO deletion logic)
+- `syncFromVault()` — vault → workspace (cloud updates arriving)
+- Adapters NEVER delete vault files — only the sync engine decides deletions using origin tracking
+- `import()` / `copyToWorkspace()` / `verifySync()` / `disconnect()` — lifecycle methods
+
+The daemon runs `syncFromVault()` THEN `syncBack()` (in that order) on each adapter's periodic interval.
+
+#### Deletion Tracking
+- Deletion tombstones stored in `deleted_files` table with version, timestamp, and `deleted_by` (local/remote)
+- Tombstones expire after 24 hours — prevents permanent accumulation
+- `isRecentDeletion()` blocks re-upload of recently deleted files
+- `clear-tombstones` CLI command available for manual recovery
 
 **Important**: `daemon install` is the recommended method (stores passphrase in OS keychain, creates persistent launchd/systemd service). `daemon start` runs in foreground only.
 
@@ -93,36 +123,41 @@ Passphrase → Argon2id(salt) → Master Key
 ### Config & Data Paths
 - Config: `~/.contextmate/config.toml` (smol-toml parser)
 - Vault: `~/.contextmate/vault/` (local decrypted cache, NOT the cloud)
+- Sync DB: `~/.contextmate/data/sync.db` (file state, cursors, deletion records)
 - Auth: `~/.contextmate/data/auth.json` (userId, token, deviceId)
 - API keys: `~/.contextmate/data/api-keys.json`
-
-### Adapters
-- Use **copy-sync** to integrate with agents (no symlinks — OpenClaw skips symlinks)
-- Claude adapter scans: `~/.agents/skills/` AND `~/.claude/skills/`
-- Adapters import files into vault, then copy back to workspace
-- Two adapters: `openclaw` (primary), `claude`
 
 ### Server
 - File paths must be `decodeURIComponent()`'d when extracted from URLs
 - Blobs stored at `data/blobs/{userId}/{filePath}`
 - CORS `exposeHeaders` needed for `X-Version` and `X-Content-Hash`
+- `changes` table records every upload/delete for cursor-based client sync
+- JWT tokens expire after 90 days; client auto-refreshes via `SyncClient.refreshToken()`
 
-### Sync
-- Daemon reads auth token from `auth.json`, not `config.toml`
-- `SyncEngine.syncAll()` discovers untracked local files and uploads them
-- `listRemoteFiles()` returns `{ files: [...] }` — extract `.files`
+## Release Workflow
+
+1. Work on a branch, create a PR
+2. Update `CHANGELOG.md` in the PR
+3. Bump version in `package.json` (minor = 0.4.X, NOT 0.5.0)
+4. Merge to main → server auto-deploys on Railway
+5. `npm publish` to publish CLI (requires OTP 2FA)
+
+## Common Pitfalls
+
+- **Never infer deletions from absence**: Use the server change log (`/api/files/changes?since=N`). A file missing from a list could be new, not deleted.
+- **Mutex required**: All sync operations MUST go through `SyncMutex`. Direct DB/file writes outside the mutex cause race conditions.
+- **Watcher suppression**: When writing files to disk during download, add the path to `suppressedPaths` BEFORE writing. Otherwise the watcher fires and re-uploads.
+- **Adapters don't delete**: `syncBack()` only copies workspace → vault. The engine decides deletions using origin tracking. Never add deletion logic to adapters.
+- **Origin tracking**: New local files get `origin: 'local'`. Only after successful upload+confirmation do they become `origin: 'synced'`. Never delete a file with `origin: 'local'` — it's a pending upload.
+- **Double URL encoding**: Server must decode paths from URLs before storing/querying
+- **Key derivation mismatch**: Web and CLI must use identical HKDF info strings
+- **Per-file vs vault key**: Files use per-file keys; device settings use vault key directly
+- **No symlinks**: All adapters use copy mode. OpenClaw's file injector skips symlinks entirely.
+- **Vault is local**: The vault (`~/.contextmate/vault/`) is a local decrypted cache, not the cloud. Cloud stores encrypted blobs.
+- **SKIP_DIRS**: The vault watcher and `discoverLocalFiles` skip `node_modules`, `__pycache__`, `.venv`, `dist`, `.cache` to prevent OOM.
+- **Test command**: Use `npx vitest run`, not `npm test` (no test script in package.json).
 
 ## Deployment
 
 - **Server + web dashboard**: Hosted on Railway. Auto-deploys on push to `main` — no manual deploy needed.
 - **CLI (`contextmate` npm package)**: Published manually via `npm publish` (requires OTP 2FA). Bump version in `package.json` before publishing.
-
-## Common Pitfalls
-
-- **Double URL encoding**: Server must decode paths from URLs before storing/querying
-- **Key derivation mismatch**: Web and CLI must use identical HKDF info strings
-- **Per-file vs vault key**: Files use per-file keys; device settings use vault key directly
-- **Node 20 types**: Avoid `globalThis.BodyInit` — use `as any` for fetch body
-- **Watcher tests**: Use chokidar `ready` event, not fixed delays
-- **No symlinks**: All adapters use copy mode. OpenClaw's file injector skips symlinks entirely.
-- **Vault is local**: The vault (`~/.contextmate/vault/`) is a local decrypted cache, not the cloud. Cloud stores encrypted blobs.
