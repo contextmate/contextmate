@@ -579,6 +579,25 @@ export class SyncEngine {
 
     this.stateDb.setLastCursor(newCursor);
 
+    // Step 1b: Consistency check — catch files where DB version is behind server.
+    // This handles cases where a change log entry was missed (e.g., cursor was set
+    // past it during first sync, or the entry was created before the changes table existed).
+    try {
+      const remoteFiles = await this.client.listRemoteFiles();
+      const dbFiles = this.stateDb.getAllFiles();
+      const dbMap = new Map(dbFiles.map((f) => [f.path, f]));
+
+      for (const remote of remoteFiles) {
+        const local = dbMap.get(remote.path);
+        if (local && local.version < remote.version) {
+          await this.downloadFile(remote.path, result);
+        }
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[sync] Consistency check error: ${message}`);
+    }
+
     // Step 2: Push local changes
     const localDiskFiles = await this.discoverLocalFiles(this.config.vault.path, this.config.vault.path);
 

@@ -2,6 +2,11 @@
 
 All notable changes to ContextMate are documented here. Follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.23] - 2026-03-29
+
+### Fixed
+- **Bug #23: stale file content after version bump** — incremental sync now includes a consistency check that compares DB versions against the server file list. Catches files where the change log entry was missed (e.g., created before the `changes` table existed, or cursor was set past it during first sync).
+
 ## [0.4.22] - 2026-03-29
 
 ### Major: Sync Engine Redesign
