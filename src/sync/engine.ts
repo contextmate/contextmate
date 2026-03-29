@@ -11,6 +11,11 @@ import type { ContextMateConfig } from '../config.js';
 import type { SyncResult } from '../types.js';
 import { getSyncDbPath } from '../utils/paths.js';
 
+/** Directories that should never be synced or watched inside the vault. */
+const SKIP_DIRS = new Set([
+  'node_modules', '__pycache__', '.venv', 'venv', '.next', 'dist', '.cache',
+]);
+
 export class SyncEngine {
   private watcher: FileWatcher | null = null;
   private stateDb: SyncStateDB | null = null;
@@ -42,8 +47,10 @@ export class SyncEngine {
     await mkdir(dirname(dbPath), { recursive: true });
     this.stateDb = new SyncStateDB(dbPath);
 
-    // Start file watcher
-    this.watcher = new FileWatcher(this.config.vault.path, this.config.sync.debounceMs);
+    // Start file watcher (skip heavy dirs that should never sync)
+    this.watcher = new FileWatcher(this.config.vault.path, this.config.sync.debounceMs, {
+      ignoredDirs: [...SKIP_DIRS],
+    });
     this.watcher.start();
 
     // Wire up local file events BEFORE syncAll so no events are lost
@@ -195,7 +202,7 @@ export class SyncEngine {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      this.stateDb.addSyncLog('error', relativePath, message);
+      this.stateDb?.addSyncLog('error', relativePath, message);
     }
   }
 
@@ -286,7 +293,7 @@ export class SyncEngine {
       this.stateDb.addSyncLog('download', path);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      this.stateDb.addSyncLog('error', path, message);
+      this.stateDb?.addSyncLog('error', path, message);
     }
   }
 
@@ -299,7 +306,7 @@ export class SyncEngine {
       return paths;
     }
     for (const name of entries) {
-      if (name.startsWith('.') || name === 'node_modules') continue;
+      if (name.startsWith('.') || SKIP_DIRS.has(name)) continue;
       const full = join(dir, name);
       try {
         const s = await stat(full);
