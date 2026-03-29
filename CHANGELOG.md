@@ -2,6 +2,11 @@
 
 All notable changes to ContextMate are documented here. Follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.24] - 2026-03-29
+
+### Fixed
+- **Bug #24: new files from other devices deleted instead of downloaded** — consistency check now downloads files that exist on the server but are missing from the local DB entirely (not just version mismatches). Previously, files uploaded before the `changes` table existed were invisible to incremental sync.
+
 ## [0.4.23] - 2026-03-29
 
 ### Fixed

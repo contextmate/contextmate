@@ -589,7 +589,13 @@ export class SyncEngine {
 
       for (const remote of remoteFiles) {
         const local = dbMap.get(remote.path);
-        if (local && local.version < remote.version) {
+        if (!local) {
+          // File on server but not in our DB — new file from another device, download it
+          if (!this.stateDb.isRecentDeletion(remote.path)) {
+            await this.downloadFile(remote.path, result);
+          }
+        } else if (local.version < remote.version) {
+          // DB version behind server — missed update, download it
           await this.downloadFile(remote.path, result);
         }
       }
