@@ -366,6 +366,21 @@ const startCommand = new Command('start')
             };
             watcher.on('file-changed', () => void handleChange());
             watcher.on('file-added', () => void handleChange());
+
+            // Detect workspace file deletions immediately
+            watcher.on('file-removed', (event: { path: string }) => {
+              if (syncSettings.adapters.openclaw !== 'send-receive') return;
+              const vaultRelative = join('openclaw', agentId, event.path);
+              void (async () => {
+                try {
+                  await unlink(join(config.vault.path, vaultRelative));
+                } catch { /* Already gone */ }
+                try {
+                  await engine.deleteFile(vaultRelative);
+                } catch { /* Non-critical */ }
+                console.log(chalk.dim(`  OpenClaw [${agentId}]: deleted ${event.path}`));
+              })();
+            });
           }
 
           const interval = setInterval(async () => {
