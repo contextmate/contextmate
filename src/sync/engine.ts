@@ -415,6 +415,15 @@ export class SyncEngine {
       // Remove files that were deleted remotely while we were offline
       for (const local of localFiles) {
         if (!remoteFileMap.has(local.path)) {
+          // Grace period: if the file was tracked recently (within 5 min),
+          // it's likely an incomplete upload from a crash/restart cycle.
+          // Clear tracking so it gets re-uploaded instead of tombstoned.
+          const age = Date.now() - local.lastModified;
+          if (age < 5 * 60 * 1000) {
+            this.stateDb.removeFile(local.path);
+            this.stateDb.addSyncLog('retry', local.path, 'Cleared stale tracking (will re-upload)');
+            continue;
+          }
           // File is tracked locally but no longer on remote — it was deleted
           this.stateDb.removeFile(local.path);
           this.stateDb.addDeletion(local.path);

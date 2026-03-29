@@ -185,6 +185,60 @@ export const filesCommand = new Command('files')
   });
 
 filesCommand
+  .command('clear-tombstones')
+  .description('Clear deletion tombstones so files can be re-uploaded')
+  .argument('[pattern]', 'Path prefix to match (e.g. "openclaw/openclaw-workflows"). Clears all if omitted.')
+  .option('--dry-run', 'Show tombstones without clearing')
+  .action(async (pattern: string | undefined, opts: { dryRun?: boolean }) => {
+    try {
+      const configDir = getConfigDir();
+      if (!(await fileExists(configDir))) {
+        console.error(chalk.red('ContextMate is not initialized. Run "contextmate init" first.'));
+        process.exit(1);
+      }
+
+      const config = await loadConfig();
+      const dbPath = getSyncDbPath(config);
+      if (!(await fileExists(dbPath))) {
+        console.log(chalk.dim('No sync database found.'));
+        return;
+      }
+
+      const { SyncStateDB } = await import('../sync/index.js');
+      const db = new SyncStateDB(dbPath);
+
+      const tombstones = db.listDeletions(pattern);
+      if (tombstones.length === 0) {
+        db.close();
+        console.log(chalk.dim(pattern ? `No tombstones matching "${pattern}".` : 'No tombstones found.'));
+        return;
+      }
+
+      console.log('');
+      for (const t of tombstones) {
+        const age = Date.now() - t.deletedAt;
+        const ageStr = age < 3600000 ? `${Math.round(age / 60000)}m ago` : `${Math.round(age / 3600000)}h ago`;
+        console.log(`  ${chalk.red('⊘')} ${t.path}  ${chalk.dim(ageStr)}`);
+      }
+      console.log('');
+
+      if (opts.dryRun) {
+        db.close();
+        console.log(chalk.dim(`${tombstones.length} tombstone${tombstones.length === 1 ? '' : 's'} (dry run — not cleared).`));
+        return;
+      }
+
+      const cleared = db.clearDeletions(pattern);
+      db.close();
+      console.log(chalk.green(`Cleared ${cleared} tombstone${cleared === 1 ? '' : 's'}.`) + chalk.dim(' Files in the vault will be re-uploaded on next sync.'));
+      console.log('');
+    } catch (err) {
+      console.error(chalk.red(`Error: ${err instanceof Error ? err.message : String(err)}`));
+      process.exit(1);
+    }
+  });
+
+filesCommand
   .command('delete')
   .description('Delete files matching a pattern from vault, sync DB, and server')
   .argument('<pattern>', 'Glob pattern or exact path (e.g. "claude/**")')

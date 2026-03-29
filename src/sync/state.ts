@@ -169,6 +169,22 @@ export class SyncStateDB {
     this.db.prepare('DELETE FROM deletions WHERE path = ?').run(path);
   }
 
+  clearDeletions(pattern?: string): number {
+    if (pattern) {
+      return this.db.prepare('DELETE FROM deletions WHERE path LIKE ?').run(pattern + '%').changes;
+    }
+    return this.db.prepare('DELETE FROM deletions').run().changes;
+  }
+
+  listDeletions(pattern?: string): Array<{ path: string; deletedAt: number }> {
+    if (pattern) {
+      return this.db.prepare('SELECT path, deleted_at as deletedAt FROM deletions WHERE path LIKE ? ORDER BY path')
+        .all(pattern + '%') as Array<{ path: string; deletedAt: number }>;
+    }
+    return this.db.prepare('SELECT path, deleted_at as deletedAt FROM deletions ORDER BY path')
+      .all() as Array<{ path: string; deletedAt: number }>;
+  }
+
   addSyncLog(action: string, path: string, details?: string): void {
     this.db.prepare(
       'INSERT INTO sync_log (action, path, timestamp, details) VALUES (?, ?, ?, ?)',
