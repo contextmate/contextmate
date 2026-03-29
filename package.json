@@ -1,6 +1,6 @@
 {
   "name": "contextmate",
-  "version": "0.4.21",
+  "version": "0.4.22",
   "description": "Zero-knowledge encrypted sync for AI agent context",
   "type": "module",
   "bin": {
