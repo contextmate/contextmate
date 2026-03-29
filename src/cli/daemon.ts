@@ -329,7 +329,10 @@ const startCommand = new Command('start')
           });
           const workspacePath = ws.workspacePath;
 
-          // Initial sync back (only if bidirectional)
+          // Initial sync: vault → workspace FIRST (so new cloud files arrive
+          // in workspace before syncBack checks for deletions)
+          await openclawAdapter.syncFromVault(workspacePath);
+
           if (openclawCanPush) {
             const backed = await openclawAdapter.syncBack(workspacePath);
             if (backed.synced.length > 0) {
@@ -369,13 +372,15 @@ const startCommand = new Command('start')
             const curDirection = syncSettings.adapters.openclaw;
             if (curDirection === 'off') return;
             try {
+              // syncFromVault first so new cloud files are in workspace
+              // before syncBack checks for deletions
+              await openclawAdapter.syncFromVault(workspacePath);
               if (curDirection === 'send-receive') {
                 const result = await openclawAdapter.syncBack(workspacePath);
                 for (const del of result.deleted) {
                   try { await engine.deleteFile(del); } catch { /* Non-critical */ }
                 }
               }
-              await openclawAdapter.syncFromVault(workspacePath);
             } catch {
               // Non-critical
             }
@@ -420,8 +425,8 @@ const startCommand = new Command('start')
           const curDirection = syncSettings.adapters.openclaw;
           if (curDirection === 'off') return;
           try {
-            if (curDirection === 'send-receive') await globalSync.syncBack();
             await globalSync.syncFromVault();
+            if (curDirection === 'send-receive') await globalSync.syncBack();
           } catch {
             // Non-critical
           }
@@ -448,16 +453,15 @@ const startCommand = new Command('start')
         });
         const claudeDir = config.adapters.claude.claudeDir;
 
-        // Initial sync back (only if bidirectional)
+        // Initial sync: vault → workspace first, then workspace → vault
+        await claudeAdapter.syncFromVault(claudeDir);
+
         if (claudeCanPush) {
           const backed = await claudeAdapter.syncBack(claudeDir);
           if (backed.synced.length > 0) {
             console.log(chalk.dim(`  Claude: ${backed.synced.length} file${backed.synced.length === 1 ? '' : 's'} synced back`));
           }
         }
-
-        // Initial pull from vault
-        await claudeAdapter.syncFromVault(claudeDir);
 
         // Watch Claude directory for changes (only if bidirectional)
         if (claudeCanPush) {
@@ -483,8 +487,8 @@ const startCommand = new Command('start')
           const curDirection = syncSettings.adapters.claude;
           if (curDirection === 'off') return;
           try {
-            if (curDirection === 'send-receive') await claudeAdapter.syncBack(claudeDir);
             await claudeAdapter.syncFromVault(claudeDir);
+            if (curDirection === 'send-receive') await claudeAdapter.syncBack(claudeDir);
           } catch {
             // Non-critical
           }

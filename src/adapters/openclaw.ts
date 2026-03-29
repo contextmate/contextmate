@@ -232,16 +232,21 @@ export class OpenClawAdapter extends BaseAdapter {
       }
     }
 
-    // Detect workspace deletions: vault files with no workspace counterpart
+    // Detect workspace deletions: vault files with no workspace counterpart.
+    // Only delete vault files older than 60s — newer files are likely cloud
+    // arrivals that haven't been copied to workspace by syncFromVault yet.
     const vaultFiles = await this.discoverVaultFiles();
     for (const vaultRelative of vaultFiles) {
       const relativeSrc = vaultRelative.slice(this.vaultPrefix.length + 1);
       if (!workspaceRelPaths.has(relativeSrc)) {
+        const vaultFilePath = join(this.vaultPath, vaultRelative);
         try {
-          await unlink(join(this.vaultPath, vaultRelative));
+          const vaultStat = await stat(vaultFilePath);
+          if (Date.now() - vaultStat.mtimeMs < 60_000) continue;
+          await unlink(vaultFilePath);
           deleted.push(vaultRelative);
         } catch {
-          // Already gone
+          // Already gone or inaccessible
         }
       }
     }
