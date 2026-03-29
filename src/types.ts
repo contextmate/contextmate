@@ -1,4 +1,6 @@
-export type SyncState = 'synced' | 'modified' | 'conflict' | 'pending' | 'deleted';
+export type SyncState = 'pending_upload' | 'pending_download' | 'synced' | 'conflict' | 'pending_delete' | 'error' | 'pending' | 'modified' | 'deleted';
+
+export type FileOrigin = 'local' | 'remote' | 'synced';
 
 export interface SyncFile {
   id: string;
@@ -9,6 +11,7 @@ export interface SyncFile {
   size: number;
   lastModified: number;
   syncState: SyncState;
+  origin?: FileOrigin;
 }
 
 export interface DeviceInfo {
@@ -45,10 +48,10 @@ export interface ApiKeyInfo {
 export type ApiPermission = 'read' | 'read-write';
 
 export interface RemoteChange {
+  seq: number;
   path: string;
   action: 'updated' | 'deleted';
-  version: number;
-  encryptedHash: string;
+  version: number | null;
   timestamp: number;
 }
 

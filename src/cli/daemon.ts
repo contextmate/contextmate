@@ -353,15 +353,8 @@ const startCommand = new Command('start')
                 if (result.synced.length > 0) {
                   console.log(chalk.dim(`  OpenClaw [${agentId}]: ${result.synced.length} file${result.synced.length === 1 ? '' : 's'} synced back`));
                 }
-                // Propagate workspace deletions to server
-                for (const del of result.deleted) {
-                  try { await engine.deleteFile(del); } catch { /* Non-critical */ }
-                }
-                if (result.deleted.length > 0) {
-                  console.log(chalk.dim(`  OpenClaw [${agentId}]: ${result.deleted.length} file${result.deleted.length === 1 ? '' : 's'} deleted`));
-                }
-              } catch {
-                // Non-critical
+              } catch (err) {
+                console.error(chalk.dim(`  Sync error: ${err instanceof Error ? err.message : String(err)}`));
               }
             };
             watcher.on('file-changed', () => void handleChange());
@@ -387,17 +380,12 @@ const startCommand = new Command('start')
             const curDirection = syncSettings.adapters.openclaw;
             if (curDirection === 'off') return;
             try {
-              // syncFromVault first so new cloud files are in workspace
-              // before syncBack checks for deletions
               await openclawAdapter.syncFromVault(workspacePath);
               if (curDirection === 'send-receive') {
-                const result = await openclawAdapter.syncBack(workspacePath);
-                for (const del of result.deleted) {
-                  try { await engine.deleteFile(del); } catch { /* Non-critical */ }
-                }
+                await openclawAdapter.syncBack(workspacePath);
               }
-            } catch {
-              // Non-critical
+            } catch (err) {
+              console.error(chalk.dim(`  Sync error: ${err instanceof Error ? err.message : String(err)}`));
             }
           }, config.sync.pollIntervalMs);
 
@@ -428,8 +416,8 @@ const startCommand = new Command('start')
               if (result.synced.length > 0) {
                 console.log(chalk.dim(`  OpenClaw [global]: ${result.synced.length} file${result.synced.length === 1 ? '' : 's'} synced back`));
               }
-            } catch {
-              // Non-critical
+            } catch (err) {
+              console.error(chalk.dim(`  Sync error: ${err instanceof Error ? err.message : String(err)}`));
             }
           };
           openclawRootWatcher.on('file-changed', () => void handleGlobalChange());
@@ -442,8 +430,8 @@ const startCommand = new Command('start')
           try {
             await globalSync.syncFromVault();
             if (curDirection === 'send-receive') await globalSync.syncBack();
-          } catch {
-            // Non-critical
+          } catch (err) {
+            console.error(chalk.dim(`  Sync error: ${err instanceof Error ? err.message : String(err)}`));
           }
         }, config.sync.pollIntervalMs);
 
@@ -490,8 +478,8 @@ const startCommand = new Command('start')
               if (result.synced.length > 0) {
                 console.log(chalk.dim(`  Claude: ${result.synced.length} file${result.synced.length === 1 ? '' : 's'} synced back`));
               }
-            } catch {
-              // Non-critical
+            } catch (err) {
+              console.error(chalk.dim(`  Sync error: ${err instanceof Error ? err.message : String(err)}`));
             }
           };
           claudeWatcher.on('file-changed', () => void handleClaudeChange());
@@ -504,8 +492,8 @@ const startCommand = new Command('start')
           try {
             await claudeAdapter.syncFromVault(claudeDir);
             if (curDirection === 'send-receive') await claudeAdapter.syncBack(claudeDir);
-          } catch {
-            // Non-critical
+          } catch (err) {
+            console.error(chalk.dim(`  Sync error: ${err instanceof Error ? err.message : String(err)}`));
           }
         }, config.sync.pollIntervalMs);
       }

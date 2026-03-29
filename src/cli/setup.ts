@@ -776,12 +776,9 @@ export const setupCommand = new Command('setup')
 
           const handleChange = async () => {
             try {
-              const result = await openclawAdapter.syncBack(workspacePath);
-              for (const del of result.deleted) {
-                try { await engine.deleteFile(del); } catch { /* Non-critical */ }
-              }
-            } catch {
-              // Non-critical
+              await openclawAdapter.syncBack(workspacePath);
+            } catch (err) {
+              console.error(chalk.dim(`  Sync error: ${err instanceof Error ? err.message : String(err)}`));
             }
           };
           watcher.on('file-changed', () => void handleChange());
@@ -789,13 +786,10 @@ export const setupCommand = new Command('setup')
 
           const interval = setInterval(async () => {
             try {
-              const result = await openclawAdapter.syncBack(workspacePath);
-              for (const del of result.deleted) {
-                try { await engine.deleteFile(del); } catch { /* Non-critical */ }
-              }
+              await openclawAdapter.syncBack(workspacePath);
               await openclawAdapter.syncFromVault(workspacePath);
-            } catch {
-              // Non-critical
+            } catch (err) {
+              console.error(chalk.dim(`  Sync error: ${err instanceof Error ? err.message : String(err)}`));
             }
           }, config!.sync.pollIntervalMs);
 

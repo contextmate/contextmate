@@ -67,10 +67,14 @@ export class SyncWebSocket extends EventEmitter {
     this.ws = new WebSocket(wsUrl);
 
     this.ws.on('open', () => {
+      const isReconnect = this.reconnectAttempts > 0;
       this.reconnectAttempts = 0;
       this.registerDevice();
       this.startHeartbeat();
       this.emit('connected');
+      if (isReconnect) {
+        this.emit('reconnected');
+      }
     });
 
     this.ws.on('message', (data: WebSocket.RawData) => {

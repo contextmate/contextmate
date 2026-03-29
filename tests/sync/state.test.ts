@@ -17,7 +17,8 @@ function makeSyncFile(overrides: Partial<SyncFile> = {}): SyncFile {
     version: 1,
     size: 100,
     lastModified: Date.now(),
-    syncState: 'pending',
+    syncState: 'pending_upload',
+    origin: 'synced',
     ...overrides,
   };
 }
@@ -48,7 +49,7 @@ describe('SyncStateDB', () => {
     expect(retrieved!.encryptedHash).toBe('def456');
     expect(retrieved!.version).toBe(1);
     expect(retrieved!.size).toBe(100);
-    expect(retrieved!.syncState).toBe('pending');
+    expect(retrieved!.syncState).toBe('pending_upload');
   });
 
   it('getAllFiles returns all inserted files', () => {
@@ -60,16 +61,16 @@ describe('SyncStateDB', () => {
   });
 
   it('getFilesByState returns correct subset', () => {
-    db.upsertFile(makeSyncFile({ id: 'f1', path: 'a.md', syncState: 'pending' }));
+    db.upsertFile(makeSyncFile({ id: 'f1', path: 'a.md', syncState: 'pending_upload' }));
     db.upsertFile(makeSyncFile({ id: 'f2', path: 'b.md', syncState: 'synced' }));
-    db.upsertFile(makeSyncFile({ id: 'f3', path: 'c.md', syncState: 'pending' }));
-    const pending = db.getFilesByState('pending');
+    db.upsertFile(makeSyncFile({ id: 'f3', path: 'c.md', syncState: 'pending_upload' }));
+    const pending = db.getFilesByState('pending_upload');
     expect(pending.length).toBe(2);
-    expect(pending.every((f) => f.syncState === 'pending')).toBe(true);
+    expect(pending.every((f) => f.syncState === 'pending_upload')).toBe(true);
   });
 
   it('markSynced updates state correctly', () => {
-    db.upsertFile(makeSyncFile({ id: 'f1', path: 'a.md', syncState: 'pending' }));
+    db.upsertFile(makeSyncFile({ id: 'f1', path: 'a.md', syncState: 'pending_upload' }));
     db.markSynced('a.md', 2, 'new-enc-hash');
     const file = db.getFile('a.md');
     expect(file!.syncState).toBe('synced');
@@ -160,5 +161,58 @@ describe('SyncStateDB', () => {
   it('close closes database without error', () => {
     const tmpDb = new SyncStateDB(join(tmpDir, 'close-test.db'));
     expect(() => tmpDb.close()).not.toThrow();
+  });
+
+  // --- New tests for sync redesign ---
+
+  it('persists origin field', () => {
+    db.upsertFile(makeSyncFile({ id: 'f1', path: 'a.md', origin: 'local' }));
+    const file = db.getFile('a.md');
+    expect(file!.origin).toBe('local');
+  });
+
+  it('defaults origin to synced for existing files', () => {
+    db.upsertFile(makeSyncFile({ id: 'f1', path: 'a.md' }));
+    const file = db.getFile('a.md');
+    expect(file!.origin).toBe('synced');
+  });
+
+  it('getLastCursor returns 0 when no cursor set', () => {
+    expect(db.getLastCursor()).toBe(0);
+  });
+
+  it('setLastCursor and getLastCursor round-trip', () => {
+    db.setLastCursor(42);
+    expect(db.getLastCursor()).toBe(42);
+    db.setLastCursor(100);
+    expect(db.getLastCursor()).toBe(100);
+  });
+
+  it('recordDeletion and isRecentDeletion', () => {
+    db.recordDeletion('deleted.md', 3, 'remote');
+    expect(db.isRecentDeletion('deleted.md')).toBe(true);
+    expect(db.isRecentDeletion('other.md')).toBe(false);
+  });
+
+  it('isRecentDeletion respects maxAge', () => {
+    db.recordDeletion('old.md', 1, 'local');
+    // With a very short maxAge, it should be "expired"
+    expect(db.isRecentDeletion('old.md', 0)).toBe(false);
+  });
+
+  it('expireDeletions removes old entries', () => {
+    db.recordDeletion('old.md', 1, 'local');
+    // Expire everything older than "in the future" — should remove it
+    const removed = db.expireDeletions(Date.now() + 1000);
+    expect(removed).toBe(1);
+    expect(db.isRecentDeletion('old.md')).toBe(false);
+  });
+
+  it('transact wraps in transaction', () => {
+    db.transact(() => {
+      db.upsertFile(makeSyncFile({ id: 'f1', path: 'a.md' }));
+      db.upsertFile(makeSyncFile({ id: 'f2', path: 'b.md' }));
+    });
+    expect(db.getAllFiles().length).toBe(2);
   });
 });

@@ -1,5 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises';
-import type { FileMetadata, DeviceInfo } from '../types.js';
+import type { FileMetadata, DeviceInfo, RemoteChange } from '../types.js';
 
 export interface TokenRefreshConfig {
   authJsonPath: string;
@@ -117,6 +117,19 @@ export class SyncClient {
 
     const result = (await response.json()) as { id: string };
     return result.id;
+  }
+
+  async getChanges(since: number, limit: number = 1000): Promise<{ changes: RemoteChange[]; cursor: number }> {
+    const response = await this.fetchWithRetry(
+      `${this.baseUrl}/api/files/changes?since=${since}&limit=${limit}`,
+      { method: 'GET' },
+    );
+
+    if (!response.ok) {
+      throw new Error(`Get changes failed: ${response.status} ${response.statusText}`);
+    }
+
+    return (await response.json()) as { changes: RemoteChange[]; cursor: number };
   }
 
   async listDevices(): Promise<DeviceInfo[]> {

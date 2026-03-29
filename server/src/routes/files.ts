@@ -44,21 +44,25 @@ fileRoutes.get('/', async (c) => {
   return c.json({ files });
 });
 
-// Get changes since timestamp
+// Get changes since cursor
 fileRoutes.get('/changes', async (c) => {
   const auth = getAuth(c);
   const since = Number(c.req.query('since') || '0');
+  const limit = Math.min(Number(c.req.query('limit') || '1000'), 5000);
   const db = getDb();
 
-  let files = db.prepare(
-    'SELECT path, version, encrypted_hash as encryptedHash, size, updated_at as updatedAt FROM files WHERE user_id = ? AND updated_at > ?'
-  ).all(auth.userId, since) as Array<{ path: string; version: number; encryptedHash: string; size: number; updatedAt: number }>;
+  let changes = db.prepare(
+    'SELECT seq, action, path, version, timestamp FROM changes WHERE user_id = ? AND seq > ? ORDER BY seq ASC LIMIT ?'
+  ).all(auth.userId, since, limit) as Array<{ seq: number; action: string; path: string; version: number | null; timestamp: number }>;
 
+  // Filter by scope if using API key
   if (auth.scope) {
-    files = files.filter((f) => checkScope(auth.scope, f.path));
+    changes = changes.filter((ch) => checkScope(auth.scope, ch.path));
   }
 
-  return c.json({ files });
+  const cursor = changes.length > 0 ? changes[changes.length - 1].seq : since;
+
+  return c.json({ changes, cursor });
 });
 
 // Upload file
@@ -138,6 +142,9 @@ fileRoutes.put('/*', async (c) => {
 
     await storeBlob(DATA_DIR, auth.userId, filePath, data);
 
+    db.prepare('INSERT INTO changes (user_id, action, path, version, timestamp) VALUES (?, ?, ?, ?, ?)')
+      .run(auth.userId, 'updated', filePath, updated.version, Date.now());
+
     broadcastToUser(auth.userId, { type: 'file-updated', path: filePath, version: updated.version });
 
     recordAudit(auth.userId, 'upload', filePath, { version: updated.version, size: data.length });
@@ -150,6 +157,9 @@ fileRoutes.put('/*', async (c) => {
     ).run(fileId, auth.userId, filePath, encryptedHash, data.length, now, now);
 
     await storeBlob(DATA_DIR, auth.userId, filePath, data);
+
+    db.prepare('INSERT INTO changes (user_id, action, path, version, timestamp) VALUES (?, ?, ?, ?, ?)')
+      .run(auth.userId, 'updated', filePath, 1, Date.now());
 
     broadcastToUser(auth.userId, { type: 'file-updated', path: filePath, version: 1 });
 
@@ -237,6 +247,9 @@ fileRoutes.delete('/*', async (c) => {
   } catch {
     // Blob may already be missing
   }
+
+  db.prepare('INSERT INTO changes (user_id, action, path, version, timestamp) VALUES (?, ?, ?, ?, ?)')
+    .run(auth.userId, 'deleted', filePath, null, Date.now());
 
   broadcastToUser(auth.userId, { type: 'file-deleted', path: filePath });
 

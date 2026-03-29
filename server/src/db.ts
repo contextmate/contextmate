@@ -66,6 +66,18 @@ export function initDb(dataDir: string): Database.Database {
 
     CREATE INDEX IF NOT EXISTS idx_audit_log_user_ts
       ON audit_log(user_id, timestamp DESC);
+
+    CREATE TABLE IF NOT EXISTS changes (
+      seq INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      action TEXT NOT NULL,
+      path TEXT NOT NULL,
+      version INTEGER,
+      timestamp INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_changes_user_seq
+      ON changes(user_id, seq);
   `);
 
   // Migrations for existing databases
