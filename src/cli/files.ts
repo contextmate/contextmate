@@ -239,6 +239,39 @@ filesCommand
   });
 
 filesCommand
+  .command('reset-cursor')
+  .description('Reset the sync cursor, forcing a full re-reconciliation on next daemon sync')
+  .action(async () => {
+    try {
+      const configDir = getConfigDir();
+      if (!(await fileExists(configDir))) {
+        console.error(chalk.red('ContextMate is not initialized. Run "contextmate init" first.'));
+        process.exit(1);
+      }
+
+      const config = await loadConfig();
+      const dbPath = getSyncDbPath(config);
+      if (!(await fileExists(dbPath))) {
+        console.log(chalk.dim('No sync database found.'));
+        return;
+      }
+
+      const { SyncStateDB } = await import('../sync/index.js');
+      const db = new SyncStateDB(dbPath);
+      const oldCursor = db.getLastCursor();
+      db.setLastCursor(0);
+      db.close();
+
+      console.log(chalk.green('Sync cursor reset.') + chalk.dim(` (was ${oldCursor})`));
+      console.log(chalk.dim('Next daemon sync will do a full reconciliation against the server.'));
+      console.log('');
+    } catch (err) {
+      console.error(chalk.red(`Error: ${err instanceof Error ? err.message : String(err)}`));
+      process.exit(1);
+    }
+  });
+
+filesCommand
   .command('delete')
   .description('Delete files matching a pattern from vault, sync DB, and server')
   .argument('<pattern>', 'Glob pattern or exact path (e.g. "claude/**")')

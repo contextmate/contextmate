@@ -2,6 +2,15 @@
 
 All notable changes to ContextMate are documented here. Follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.25] - 2026-03-29
+
+### Changed
+- **Remove consistency check from incremental sync** — was listing all 2200+ files every 30 seconds, defeating the purpose of the change log. Dropbox doesn't do this; neither should we.
+- **fullReconciliation only sets cursor on zero errors** — if any file fails during initial reconciliation, the cursor stays at 0 and re-runs on the next poll until all files are processed. Previously, the cursor was set even with errors, permanently skipping failed files.
+
+### Added
+- `contextmate files reset-cursor` — resets the sync cursor, forcing a full re-reconciliation on the next daemon sync. Use this to recover from sync drift without clearing the DB.
+
 ## [0.4.24] - 2026-03-29
 
 ### Fixed

@@ -534,9 +534,15 @@ export class SyncEngine {
       }
     }
 
-    // Establish cursor by fetching changes(0) to get the latest cursor value
-    const { cursor: newCursor } = await this.client.getChanges(0);
-    this.stateDb.setLastCursor(newCursor);
+    // Only set the cursor if reconciliation completed with zero errors.
+    // If any files failed, we'll re-run fullReconciliation on the next poll
+    // until all files are processed successfully.
+    if (result.errors.length === 0) {
+      const { cursor: newCursor } = await this.client.getChanges(0);
+      this.stateDb.setLastCursor(newCursor);
+    } else {
+      console.error(`[sync] Full reconciliation had ${result.errors.length} error(s) — cursor NOT set, will retry`);
+    }
   }
 
   /**
@@ -578,31 +584,6 @@ export class SyncEngine {
     }
 
     this.stateDb.setLastCursor(newCursor);
-
-    // Step 1b: Consistency check — catch files where DB version is behind server.
-    // This handles cases where a change log entry was missed (e.g., cursor was set
-    // past it during first sync, or the entry was created before the changes table existed).
-    try {
-      const remoteFiles = await this.client.listRemoteFiles();
-      const dbFiles = this.stateDb.getAllFiles();
-      const dbMap = new Map(dbFiles.map((f) => [f.path, f]));
-
-      for (const remote of remoteFiles) {
-        const local = dbMap.get(remote.path);
-        if (!local) {
-          // File on server but not in our DB — new file from another device, download it
-          if (!this.stateDb.isRecentDeletion(remote.path)) {
-            await this.downloadFile(remote.path, result);
-          }
-        } else if (local.version < remote.version) {
-          // DB version behind server — missed update, download it
-          await this.downloadFile(remote.path, result);
-        }
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error(`[sync] Consistency check error: ${message}`);
-    }
 
     // Step 2: Push local changes
     const localDiskFiles = await this.discoverLocalFiles(this.config.vault.path, this.config.vault.path);
