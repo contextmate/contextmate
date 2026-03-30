@@ -184,13 +184,9 @@ export class SyncEngine {
   private async _handleLocalChange(relativePath: string): Promise<void> {
     if (!this.stateDb) return;
 
-    // Skip files that were deleted remotely
+    // Skip files that have a recent deletion tombstone — don't re-upload them.
+    // Do NOT delete the file from disk here; let syncAll handle disk state.
     if (this.stateDb.isRecentDeletion(relativePath)) {
-      try {
-        await unlink(join(this.config.vault.path, relativePath));
-      } catch {
-        // Already gone
-      }
       return;
     }
 

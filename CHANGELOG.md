@@ -2,6 +2,12 @@
 
 All notable changes to ContextMate are documented here. Follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.29] - 2026-03-30
+
+### Fixed
+- **Root cause: two deletion tables out of sync** — `removeDeletion()`, `isDeletion()`, and `addDeletion()` now operate on BOTH the old `deletions` table AND the new `deleted_files` table. Previously, `removeDeletion` only cleared `deletions` while `isRecentDeletion` checked `deleted_files`, causing tombstones to persist across downloads and cascade deletions across devices.
+- **handleLocalChange no longer deletes files** — was deleting vault files that had tombstones, which could cascade to server deletion. Now only skips the upload; disk state is managed by syncAll.
+
 ## [0.4.28] - 2026-03-30
 
 ### Fixed

@@ -203,14 +203,19 @@ export class SyncStateDB {
     this.db.prepare(
       'INSERT OR REPLACE INTO deletions (path, deleted_at) VALUES (?, ?)',
     ).run(path, Date.now());
+    this.db.prepare(
+      "INSERT OR REPLACE INTO deleted_files (path, deleted_at, deleted_version, deleted_by) VALUES (?, ?, 0, 'local')",
+    ).run(path, Date.now());
   }
 
   isDeletion(path: string): boolean {
-    return !!this.db.prepare('SELECT 1 FROM deletions WHERE path = ?').get(path);
+    return !!this.db.prepare('SELECT 1 FROM deletions WHERE path = ?').get(path)
+      || !!this.db.prepare('SELECT 1 FROM deleted_files WHERE path = ?').get(path);
   }
 
   removeDeletion(path: string): void {
     this.db.prepare('DELETE FROM deletions WHERE path = ?').run(path);
+    this.db.prepare('DELETE FROM deleted_files WHERE path = ?').run(path);
   }
 
   clearDeletions(pattern?: string): number {
