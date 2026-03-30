@@ -239,6 +239,55 @@ filesCommand
   });
 
 filesCommand
+  .command('pull')
+  .description('Mark a file for re-download from server on next daemon sync')
+  .argument('<path>', 'File path (e.g. "openclaw/main/AGENTS.md")')
+  .action(async (filePath: string) => {
+    try {
+      const configDir = getConfigDir();
+      if (!(await fileExists(configDir))) {
+        console.error(chalk.red('ContextMate is not initialized. Run "contextmate init" first.'));
+        process.exit(1);
+      }
+
+      const config = await loadConfig();
+      const dbPath = getSyncDbPath(config);
+      if (!(await fileExists(dbPath))) {
+        console.log(chalk.red('No sync database found.'));
+        process.exit(1);
+      }
+
+      const { SyncStateDB } = await import('../sync/index.js');
+      const db = new SyncStateDB(dbPath);
+
+      // Clear any tombstones for this path
+      db.removeDeletion(filePath);
+
+      // Remove or reset the DB entry so the daemon re-downloads it
+      const existing = db.getFile(filePath);
+      if (existing) {
+        // Set version to 0 so the daemon sees "server has newer version" and downloads
+        db.upsertFile({
+          ...existing,
+          version: 0,
+          syncState: 'pending_download',
+          origin: 'remote',
+        });
+      }
+      // If no DB entry, the daemon's full reconciliation will pick it up
+
+      db.close();
+
+      console.log(chalk.green(`Marked ${filePath} for re-download.`));
+      console.log(chalk.dim('The daemon will download it on the next sync cycle.'));
+      console.log('');
+    } catch (err) {
+      console.error(chalk.red(`Error: ${err instanceof Error ? err.message : String(err)}`));
+      process.exit(1);
+    }
+  });
+
+filesCommand
   .command('reset-cursor')
   .description('Reset the sync cursor, forcing a full re-reconciliation on next daemon sync')
   .action(async () => {

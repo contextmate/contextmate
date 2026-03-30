@@ -350,13 +350,34 @@ export class SyncEngine {
   private async _handleLocalDelete(relativePath: string): Promise<void> {
     if (!this.stateDb) return;
 
+    // Check if watcher suppression applies (engine deleted this file, not user)
+    if (this.suppressedPaths.delete(relativePath)) return;
+
     const existing = this.stateDb.getFile(relativePath);
 
-    // Record deletion tombstone FIRST to prevent syncAll() from re-downloading
+    // Before propagating deletion to server, check if the server has a newer version.
+    // If so, the user likely deleted a stale local copy hoping for a re-download (#25).
+    try {
+      const remoteFiles = await this.client.listRemoteFiles();
+      const remoteFile = remoteFiles.find((f) => f.path === relativePath);
+      if (remoteFile && existing && remoteFile.version > existing.version) {
+        // Server has a newer version — re-download instead of deleting
+        this.stateDb.addSyncLog('download', relativePath, 'Re-downloading (server has newer version)');
+        await this.downloadFile(relativePath, { uploaded: [], downloaded: [], conflicts: [], errors: [] });
+        return;
+      }
+    } catch {
+      // Can't reach server — don't propagate deletion, just mark locally
+      this.stateDb.recordDeletion(relativePath, existing?.version ?? 0, 'local');
+      this.stateDb.removeFile(relativePath);
+      this.stateDb.addSyncLog('delete', relativePath, 'Local file removed (server unreachable, not propagated)');
+      return;
+    }
+
+    // Propagate deletion to server
     this.stateDb.recordDeletion(relativePath, existing?.version ?? 0, 'local');
     this.stateDb.removeFile(relativePath);
 
-    // Propagate deletion to server
     try {
       await this.client.deleteFile(relativePath);
     } catch {
@@ -560,20 +581,36 @@ export class SyncEngine {
         if (change.action === 'updated') {
           await this.downloadFile(change.path, result);
         } else if (change.action === 'deleted') {
-          // Delete local vault file (with suppression), remove from DB
-          const existing = this.stateDb.getFile(change.path);
-          this.stateDb.removeFile(change.path);
-          this.stateDb.recordDeletion(change.path, existing?.version ?? 0, 'remote');
-
+          // Before deleting, check if the local file was restored after this event (#26).
+          // If the file is on disk and newer than the deletion event, skip — it was restored.
+          const absolutePath = join(this.config.vault.path, change.path);
+          let skipDeletion = false;
           try {
-            const absolutePath = join(this.config.vault.path, change.path);
-            this.suppressedPaths.add(change.path);
-            await unlink(absolutePath);
+            const fileStat = await stat(absolutePath);
+            if (fileStat.mtimeMs > change.timestamp) {
+              // Local file is newer than the deletion event — user restored it, upload instead
+              skipDeletion = true;
+              this.stateDb.addSyncLog('upload', change.path, 'Skipped remote deletion (local file is newer, re-uploading)');
+              await this.uploadFile(change.path, hashContent(new Uint8Array(await readFile(absolutePath))), { uploaded: [], downloaded: [], conflicts: [], errors: [] });
+            }
           } catch {
-            this.suppressedPaths.delete(change.path);
+            // File doesn't exist locally — proceed with deletion
           }
 
-          this.stateDb.addSyncLog('delete', change.path, 'Remote file deleted (changelog)');
+          if (!skipDeletion) {
+            const existing = this.stateDb.getFile(change.path);
+            this.stateDb.removeFile(change.path);
+            this.stateDb.recordDeletion(change.path, existing?.version ?? 0, 'remote');
+
+            try {
+              this.suppressedPaths.add(change.path);
+              await unlink(absolutePath);
+            } catch {
+              this.suppressedPaths.delete(change.path);
+            }
+
+            this.stateDb.addSyncLog('delete', change.path, 'Remote file deleted (changelog)');
+          }
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

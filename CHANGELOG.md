@@ -2,6 +2,15 @@
 
 All notable changes to ContextMate are documented here. Follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.26] - 2026-03-30
+
+### Fixed
+- **Bug #25: local file deletion no longer destroys server copy** — `handleLocalDelete` now checks if the server has a newer version before propagating. If so, re-downloads instead of deleting. Prevents accidental data loss when users delete stale files hoping for a re-download.
+- **Bug #26: restored files no longer deleted by stale change log events** — incremental sync now checks file mtime against the deletion event timestamp. If the local file is newer (was restored after the deletion), it re-uploads instead of deleting.
+
+### Added
+- `contextmate files pull <path>` — marks a file for re-download from the server on the next daemon sync cycle. Safe alternative to deleting and hoping for re-download.
+
 ## [0.4.25] - 2026-03-29
 
 ### Changed
