@@ -157,6 +157,44 @@ Passphrase → Argon2id(salt) → Master Key
 - **SKIP_DIRS**: The vault watcher and `discoverLocalFiles` skip `node_modules`, `__pycache__`, `.venv`, `dist`, `.cache` to prevent OOM.
 - **Test command**: Use `npx vitest run`, not `npm test` (no test script in package.json).
 
+## CLI Quick Reference
+
+```bash
+contextmate status              # Is sync working? Check daemon, adapters, file counts
+contextmate log                 # Recent sync activity (uploads, downloads, errors)
+contextmate files               # List all tracked files with sync state
+contextmate daemon status       # Is the daemon running?
+contextmate daemon install      # Install + start persistent daemon (recommended)
+contextmate daemon stop         # Stop the daemon
+```
+
+## Troubleshooting Sync
+
+**Files not syncing? Follow this checklist:**
+
+1. `contextmate daemon status` — is the daemon running? If not: `contextmate daemon install`
+2. `contextmate status` — check for errors, conflicts, adapter state
+3. `contextmate log` — look for recent errors or missing upload/download entries
+4. Check the daemon error log: `tail -50 ~/.contextmate/data/daemon.err.log`
+
+**Specific problems:**
+
+| Symptom | Fix |
+|---------|-----|
+| New files from another device never appear | `contextmate files reset-cursor` then restart daemon — forces full re-reconciliation |
+| File shows "synced" in DB but content is stale | `contextmate files reset-cursor` then restart daemon |
+| Deleted files keep coming back | `contextmate files clear-tombstones [path-prefix]` then restart daemon |
+| Daemon keeps restarting / auto-update loop | `npm install -g contextmate@latest` then `contextmate daemon stop && contextmate daemon install` |
+| Token expired / 401 errors | Restart daemon — it will get a fresh token from keychain |
+
+**Nuclear option (reset sync state, keep vault files):**
+```bash
+contextmate daemon stop
+rm ~/.contextmate/data/sync.db
+contextmate daemon install
+# Daemon will do full reconciliation from scratch
+```
+
 ## Deployment
 
 - **Server + web dashboard**: Hosted on Railway. Auto-deploys on push to `main` — no manual deploy needed.

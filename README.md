@@ -62,25 +62,18 @@ contextmate setup
 | Command | Description |
 |---------|-------------|
 | **`contextmate setup`** | **Complete guided setup -- account, adapters, sync, and dashboard** |
-| `contextmate init` | Create a new account or log into an existing one |
-| `contextmate status` | Show connection status, account info, and sync state |
-| `contextmate adapter claude init` | Import Claude Code files and create symlinks |
-| `contextmate adapter claude status` | Check Claude Code symlink health |
-| `contextmate adapter claude remove` | Remove symlinks and restore originals |
-| `contextmate adapter openclaw init` | Import OpenClaw files and create symlinks |
-| `contextmate adapter openclaw status` | Check OpenClaw symlink health |
-| `contextmate adapter openclaw remove` | Remove symlinks and restore originals |
-| `contextmate daemon start` | Start the background sync daemon |
+| `contextmate status` | Show sync state, adapters, daemon, conflicts |
+| `contextmate log` | Show recent sync activity (uploads, downloads, errors) |
+| `contextmate files` | List all tracked files with sync state |
+| `contextmate files reset-cursor` | Force full re-reconciliation on next sync |
+| `contextmate files clear-tombstones` | Clear deletion markers blocking re-download |
+| `contextmate daemon install` | Install persistent sync service (recommended) |
+| `contextmate daemon status` | Check if daemon is running |
 | `contextmate daemon stop` | Stop the sync daemon |
-| `contextmate daemon status` | Check if the daemon is running |
-| `contextmate files` | List all tracked files in your vault |
-| `contextmate log` | Show recent sync activity |
 | `contextmate mcp setup` | Auto-configure MCP for Claude, Cursor, Windsurf, ChatGPT |
-| `contextmate mcp serve` | Start the local MCP server (BM25 search) |
-| `contextmate mcp api-key` | Manage MCP API keys |
-| `contextmate reset` | Remove all ContextMate data and symlinks from this machine |
+| `contextmate reset` | Remove all ContextMate data from this machine |
 
-Most users only need `contextmate setup`. The other commands are available for advanced usage and troubleshooting.
+Most users only need `contextmate setup`. The other commands are for troubleshooting.
 
 ## Adapter Configuration
 
@@ -261,7 +254,7 @@ npm install
 ### Run Tests
 
 ```bash
-npm test
+npx vitest run
 ```
 
 ## Project Structure
