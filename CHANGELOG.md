@@ -2,6 +2,12 @@
 
 All notable changes to ContextMate are documented here. Follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.28] - 2026-03-30
+
+### Fixed
+- **`files push` and `pull` now reset the cursor** — forces full reconciliation so old change log deletion events don't override the push/pull intent. Previously, the incremental sync would process historical deletion events and re-delete the file.
+- **`pull` now clears both tombstone tables** — was only calling `removeDeletion` (old table), now uses `clearDeletions` (both tables).
+
 ## [0.4.27] - 2026-03-30
 
 ### Fixed

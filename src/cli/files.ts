@@ -260,13 +260,12 @@ filesCommand
       const { SyncStateDB } = await import('../sync/index.js');
       const db = new SyncStateDB(dbPath);
 
-      // Clear any tombstones for this path
-      db.removeDeletion(filePath);
+      // Clear any tombstones for this path (both tables)
+      db.clearDeletions(filePath);
 
       // Remove or reset the DB entry so the daemon re-downloads it
       const existing = db.getFile(filePath);
       if (existing) {
-        // Set version to 0 so the daemon sees "server has newer version" and downloads
         db.upsertFile({
           ...existing,
           version: 0,
@@ -274,7 +273,9 @@ filesCommand
           origin: 'remote',
         });
       }
-      // If no DB entry, the daemon's full reconciliation will pick it up
+
+      // Reset cursor to force full reconciliation
+      db.setLastCursor(0);
 
       db.close();
 
@@ -325,10 +326,14 @@ filesCommand
         db.removeFile(filePath);
       }
 
+      // Reset cursor to force full reconciliation — this ensures the change log's
+      // old deletion events don't override the push intent
+      db.setLastCursor(0);
+
       db.close();
 
       console.log(chalk.green(`Marked ${filePath} for upload.`));
-      console.log(chalk.dim('The daemon will upload it on the next sync cycle.'));
+      console.log(chalk.dim('The daemon will do a full reconciliation and upload it.'));
       console.log('');
     } catch (err) {
       console.error(chalk.red(`Error: ${err instanceof Error ? err.message : String(err)}`));
