@@ -288,6 +288,55 @@ filesCommand
   });
 
 filesCommand
+  .command('push')
+  .description('Mark a file for upload to server on next daemon sync')
+  .argument('<path>', 'File path (e.g. "openclaw/openclaw-workflows/mcp-server/src/index.ts")')
+  .action(async (filePath: string) => {
+    try {
+      const configDir = getConfigDir();
+      if (!(await fileExists(configDir))) {
+        console.error(chalk.red('ContextMate is not initialized. Run "contextmate init" first.'));
+        process.exit(1);
+      }
+
+      const config = await loadConfig();
+      const dbPath = getSyncDbPath(config);
+      if (!(await fileExists(dbPath))) {
+        console.log(chalk.red('No sync database found.'));
+        process.exit(1);
+      }
+
+      // Verify the file exists on disk
+      const absolutePath = join(config.vault.path, filePath);
+      if (!(await fileExists(absolutePath))) {
+        console.error(chalk.red(`File not found: ${absolutePath}`));
+        process.exit(1);
+      }
+
+      const { SyncStateDB } = await import('../sync/index.js');
+      const db = new SyncStateDB(dbPath);
+
+      // Clear any tombstones (both old and new tables)
+      db.clearDeletions(filePath);
+
+      // Remove or reset the DB entry so the daemon uploads it as new
+      const existing = db.getFile(filePath);
+      if (existing) {
+        db.removeFile(filePath);
+      }
+
+      db.close();
+
+      console.log(chalk.green(`Marked ${filePath} for upload.`));
+      console.log(chalk.dim('The daemon will upload it on the next sync cycle.'));
+      console.log('');
+    } catch (err) {
+      console.error(chalk.red(`Error: ${err instanceof Error ? err.message : String(err)}`));
+      process.exit(1);
+    }
+  });
+
+filesCommand
   .command('reset-cursor')
   .description('Reset the sync cursor, forcing a full re-reconciliation on next daemon sync')
   .action(async () => {

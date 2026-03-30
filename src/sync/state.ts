@@ -214,19 +214,27 @@ export class SyncStateDB {
   }
 
   clearDeletions(pattern?: string): number {
+    // Clear from BOTH old (deletions) and new (deleted_files) tables
+    let count = 0;
     if (pattern) {
-      return this.db.prepare('DELETE FROM deletions WHERE path LIKE ?').run(pattern + '%').changes;
+      count += this.db.prepare('DELETE FROM deletions WHERE path LIKE ?').run(pattern + '%').changes;
+      count += this.db.prepare('DELETE FROM deleted_files WHERE path LIKE ?').run(pattern + '%').changes;
+    } else {
+      count += this.db.prepare('DELETE FROM deletions').run().changes;
+      count += this.db.prepare('DELETE FROM deleted_files').run().changes;
     }
-    return this.db.prepare('DELETE FROM deletions').run().changes;
+    return count;
   }
 
   listDeletions(pattern?: string): Array<{ path: string; deletedAt: number }> {
+    // List from BOTH old and new tables (deduplicated by path)
+    const sql = pattern
+      ? `SELECT path, deleted_at as deletedAt FROM deletions WHERE path LIKE ? UNION SELECT path, deleted_at as deletedAt FROM deleted_files WHERE path LIKE ? ORDER BY path`
+      : 'SELECT path, deleted_at as deletedAt FROM deletions UNION SELECT path, deleted_at as deletedAt FROM deleted_files ORDER BY path';
     if (pattern) {
-      return this.db.prepare('SELECT path, deleted_at as deletedAt FROM deletions WHERE path LIKE ? ORDER BY path')
-        .all(pattern + '%') as Array<{ path: string; deletedAt: number }>;
+      return this.db.prepare(sql).all(pattern + '%', pattern + '%') as Array<{ path: string; deletedAt: number }>;
     }
-    return this.db.prepare('SELECT path, deleted_at as deletedAt FROM deletions ORDER BY path')
-      .all() as Array<{ path: string; deletedAt: number }>;
+    return this.db.prepare(sql).all() as Array<{ path: string; deletedAt: number }>;
   }
 
   addSyncLog(action: string, path: string, details?: string): void {

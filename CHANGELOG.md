@@ -2,6 +2,14 @@
 
 All notable changes to ContextMate are documented here. Follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.27] - 2026-03-30
+
+### Fixed
+- **`clear-tombstones` now clears both deletion tables** — was only clearing the old `deletions` table while `isRecentDeletion` checks the new `deleted_files` table. This caused tombstones to persist even after clearing.
+
+### Added
+- `contextmate files push <path>` — marks a file for upload to the server on the next daemon sync. Clears any tombstones blocking the upload.
+
 ## [0.4.26] - 2026-03-30
 
 ### Fixed
