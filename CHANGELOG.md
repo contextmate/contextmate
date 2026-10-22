@@ -2,6 +2,11 @@
 
 All notable changes to ContextMate are documented here. Follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.30] - 2026-10-22
+
+### Fixed
+- Install temporary Python and C++ build tools in the server image so `better-sqlite3` can compile when a prebuilt binary is unavailable. Remove the build tools after dependency installation.
+
 ## [0.4.29] - 2026-03-30
 
 ### Fixed
